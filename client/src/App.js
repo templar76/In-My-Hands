@@ -20,6 +20,9 @@ const Register = lazy(() => import('./pages/Register'));
 const CompleteTenantRegistrationPage = lazy(() => import('./pages/CompleteTenantRegistrationPage')); // Importa la nuova pagina
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const SupplierDetail = lazy(() => import('./pages/SupplierDetail'));
+const Invoices = lazy(() => import('./pages/Invoices'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 
 const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
 const Invitations = lazy(() => import('./pages/Invitations'));
@@ -85,8 +88,20 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
-                <Route path="/profile" element={<ProtectedRoute><MyProfilePage /></ProtectedRoute>} /> {/* Nuova rotta per il profilo */}
+                <Route path="/profile" element={<ProtectedRoute><MyProfilePage /></ProtectedRoute>} />
+                <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+                <Route path="/invoices/upload" element={<ProtectedRoute><InvoiceUpload /></ProtectedRoute>} />
+                <Route path="/suppliers/:supplierId" element={<ProtectedRoute><SupplierDetail /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
+                {/* Nella sezione delle routes, aggiungi: */}
+                <Route
+                  path="/products/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ProductDetail />
+                    </ProtectedRoute>
+                  }
+                />
               </Routes>
             </Suspense>
           </Layout>

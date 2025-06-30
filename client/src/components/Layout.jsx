@@ -108,7 +108,7 @@ export default function Layout({ children }) {
 
   const allMenuItems = [
     { text: 'Dashboard', icon: <HomeIcon />, path: '/dashboard' },
-    { text: 'Fatture', icon: <Receipt/>, path: '/invoices/upload' },
+    { text: 'Fatture', icon: <Receipt/>, path: '/invoices' },
     { text: 'Prodotti',
       icon: <ShoppingCartIcon />,
       children: [

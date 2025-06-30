@@ -34,13 +34,15 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 } from 'chart.js';
 import { Line, Pie } from 'react-chartjs-2';
 import axios from 'axios';
 import { getApiUrl } from '../utils/apiConfig';
 import { useSelector } from 'react-redux';
 import { auth } from '../firebase';
+import { useNavigate } from 'react-router-dom';
 
 // Registrazione dei componenti Chart.js
 ChartJS.register(
@@ -51,7 +53,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
   // Rimosso BarElement
 );
 
@@ -67,53 +70,57 @@ const Suppliers = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const user = useSelector(state => state.auth);
-
+  const navigate = useNavigate(); // Aggiungi questa linea dopo gli altri useState
+  
   // Definisco loadData con useCallback per evitare re-render
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
+  
       const user = auth.currentUser;
       if (!user) {
         setError('Utente non autenticato');
         return;
       }
-
+  
       const token = await user.getIdToken();
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-
+  
       // Carica analytics
       const analyticsResponse = await axios.get(
         `${getApiUrl()}/api/suppliers/analytics`,
         { headers }
       );
       setAnalytics(analyticsResponse.data);
-
+  
       // Carica analisi spesa
       const spendingResponse = await axios.get(
         `${getApiUrl()}/api/suppliers/spending-analysis?groupBy=${timeframe}`,
         { headers }
       );
       setSpendingAnalysis(spendingResponse.data);
-
-      // Carica lista fornitori
+  
+      // Carica lista fornitori - AGGIUNTO searchTerm
       const suppliersResponse = await axios.get(
-        `${getApiUrl()}/api/suppliers/search?page=${page + 1}&limit=${rowsPerPage}`,
+        `${getApiUrl()}/api/suppliers/search?page=${page + 1}&limit=${rowsPerPage}&search=${searchTerm}`,
         { headers }
       );
+      console.log('Suppliers API Response:', suppliersResponse.data);
+      console.log('Suppliers total:', suppliersResponse.data.total);
+      console.log('Suppliers data:', suppliersResponse.data.data || suppliersResponse.data.suppliers);
       setSuppliers(suppliersResponse.data);
-
+  
     } catch (error) {
       console.error('Errore nel caricamento dati:', error);
       setError('Errore nel caricamento dei dati');
     } finally {
       setLoading(false);
     }
-  }, [timeframe, page, rowsPerPage]);
+  }, [timeframe, page, rowsPerPage, searchTerm]); // AGGIUNTO searchTerm alle dipendenze
 
   // Caricamento dati iniziali
   useEffect(() => {
@@ -121,38 +128,6 @@ const Suppliers = () => {
       loadData();
     }
   }, [user, loadData]);
-
-  // Remove the duplicate loadData function that starts here:
-  // const loadData = async () => {
-  //   try {
-  //     setLoading(true);
-  //     const headers = await getAuthHeaders();
-  //     const apiUrl = getApiUrl();
-  //     // Carica analytics generali
-  //     const analyticsResponse = await axios.get(
-  //       `${apiUrl}/api/suppliers/analytics?dateRange=${dateRange}`,
-  //       { headers }
-  //     );
-  //     setAnalytics(analyticsResponse.data);
-  //     // Carica analisi temporale
-  //     const spendingResponse = await axios.get(
-  //       `${apiUrl}/api/suppliers/spending-analysis?timeframe=${timeframe}&dateRange=${dateRange}`,
-  //       { headers }
-  //     );
-  //     setSpendingAnalysis(spendingResponse.data);
-  //     // Carica lista fornitori
-  //     const suppliersResponse = await axios.get(
-  //       `${apiUrl}/api/suppliers/search?page=${page + 1}&limit=${rowsPerPage}&search=${searchTerm}`,
-  //       { headers }
-  //     );
-  //     setSuppliers(suppliersResponse.data);
-  //   } catch (err) {
-  //     setError('Errore nel caricamento dei dati dei fornitori');
-  //     console.error('Error loading suppliers data:', err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   // Ricerca fornitori
   const handleSearch = () => {
@@ -427,9 +402,18 @@ const Suppliers = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {suppliers.suppliers?.map((supplier) => (
-                  <TableRow key={supplier._id || supplier.supplierId}>
-                    <TableCell>{supplier.supplierName || supplier.name}</TableCell>
+                {(suppliers.suppliers || []).map((supplier) => (
+                  <TableRow key={supplier._id}>
+                    <TableCell>
+                      <Button
+                        variant="text"
+                        color="primary"
+                        onClick={() => navigate(`/suppliers/${supplier._id || supplier.supplierId}`)}
+                        sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                      >
+                        {supplier.supplierName || supplier.name}
+                      </Button>
+                    </TableCell>
                     <TableCell>€{supplier.totalSpent?.toLocaleString()}</TableCell>
                     <TableCell>{supplier.invoiceCount}</TableCell>
                     <TableCell>
@@ -448,7 +432,7 @@ const Suppliers = () => {
           </TableContainer>
           <TablePagination
             component="div"
-            count={suppliers.total || 0}
+            count={suppliers.pagination?.total || 0}
             page={page}
             onPageChange={(event, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}

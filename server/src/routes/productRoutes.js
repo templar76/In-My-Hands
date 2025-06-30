@@ -4,7 +4,10 @@ import {
   getProducts,
   getProductsStats,
   getProductDetails
-} from '../controllers/productController.js';
+} from '../controllers/productQueryController.js';
+import {
+  updateProductPrice
+} from '../controllers/productUpdateController.js';
 
 const router = express.Router();
 
@@ -28,5 +31,12 @@ router.get('/stats', verifyFirebaseToken, getProductsStats);
  * @access Private
  */
 router.get('/:id', verifyFirebaseToken, getProductDetails);
+
+/**
+ * @route PUT /api/products/price
+ * @desc Update product price
+ * @access Private
+ */
+router.put('/price', verifyFirebaseToken, updateProductPrice);
 
 export default router;

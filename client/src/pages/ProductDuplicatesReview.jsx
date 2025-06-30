@@ -18,6 +18,16 @@ import { getApiUrl } from '../utils/apiConfig'; // Importa la funzione helper
 
 const API_URL = getApiUrl();
 
+// Aggiungi questa funzione formatCurrency
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('it-IT', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount || 0);
+};
+
 const ProductDuplicatesReview = () => {
   const [duplicates, setDuplicates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +142,7 @@ const ProductDuplicatesReview = () => {
                 {group.items.map(item => (
                   <TableRow key={item._id}>
                     <TableCell>{item.supplierName}</TableCell>
-                    <TableCell>{item.price.toFixed(2)} €</TableCell>
+                    <TableCell>{formatCurrency(item.price)}</TableCell>
                     <TableCell>{item._id}</TableCell>
                   </TableRow>
                 ))}

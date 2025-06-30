@@ -140,48 +140,48 @@ const CompleteTenantRegistrationPage = () => {
         </Typography>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>Dati Azienda</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="companyName" label="Nome Azienda" value={formData.companyName} onChange={handleChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="companyType" label="Tipo Azienda (es. SRL, SPA)" value={formData.companyType} onChange={handleChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="vatNumber" label="Partita IVA" value={formData.vatNumber} onChange={handleChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="codiceFiscale" label="Codice Fiscale" value={formData.codiceFiscale} onChange={handleChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="address" label="Indirizzo Sede Legale" value={formData.address} onChange={handleChange} fullWidth required />
             </Grid>
 
-            <Grid item xs={12} sx={{ mt: 2 }}>
+            <Grid xs={12} sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom>Contatti Azienda</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="email" label="Email Aziendale" type="email" value={formData.contacts.email} onChange={handleContactChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="phone" label="Telefono Aziendale" value={formData.contacts.phone} onChange={handleContactChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="pec" label="PEC" type="email" value={formData.contacts.pec} onChange={handleContactChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="sdiCode" label="Codice SDI" value={formData.contacts.sdiCode} onChange={handleContactChange} fullWidth required />
             </Grid>
 
-            <Grid item xs={12} sx={{ mt: 2 }}>
+            <Grid xs={12} sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom>Dati Amministratore Tenant</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="displayName" label="Nome e Cognome Admin" value={formData.admin.displayName} onChange={handleAdminChange} fullWidth required />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField name="password" label="Password Admin" type="password" value={formData.admin.password} onChange={handleAdminChange} fullWidth required helperText="Minimo 6 caratteri" />
             </Grid>
           </Grid>

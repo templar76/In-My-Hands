@@ -155,7 +155,7 @@ const MyProfilePage = () => {
         */}
         <Grid container spacing={2} direction="column">
           {/* Azienda / Tenant */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>
               Azienda / Tenant:
             </Typography>
@@ -165,7 +165,7 @@ const MyProfilePage = () => {
           </Grid>
 
           {/* Email Utente */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>
               Email:
             </Typography>
@@ -175,7 +175,7 @@ const MyProfilePage = () => {
           </Grid>
 
           {/* Nominativo Utente */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             {isEditingName ? (
               <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                 <TextField

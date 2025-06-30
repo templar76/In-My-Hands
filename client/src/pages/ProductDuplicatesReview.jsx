@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+//import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase'; // Importa auth da Firebase
 import {
   Box,
@@ -34,7 +34,7 @@ const ProductDuplicatesReview = () => {
   const [error, setError] = useState('');
   const [alert, setAlert] = useState({ type: '', message: '' });
 
-  const navigate = useNavigate();
+  //const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDuplicates = async () => {

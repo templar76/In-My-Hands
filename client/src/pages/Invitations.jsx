@@ -20,7 +20,7 @@ import {
   Tooltip // Aggiunto Tooltip
 } from '@mui/material';
 import {
-  Send as SendIcon,
+// Removed unused SendIcon import
   FileCopy as FileCopyIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon // Aggiunto per rispedire
@@ -40,7 +40,7 @@ const Invitations = () => {
   const [mode, setMode] = useState('email'); // 'email' | 'link' | 'qr'
 
   // Stato per la gestione degli inviti inviati (per admin)
-  const { user: authUser, tenantId: authTenantId, role: userRole } = useSelector(state => state.auth);
+  const { role: userRole } = useSelector(state => state.auth);
   const [sentInvitations, setSentInvitations] = useState([]);
   const [isLoadingSentInvitations, setIsLoadingSentInvitations] = useState(false);
   // Rimuoviamo sentInvitationsError e usiamo listOperationsMessage
@@ -136,7 +136,7 @@ const Invitations = () => {
     };
 
     fetchSentInvitations();
-  }, [userRole, tenantId, API_URL]); // Dipendenze: userRole e tenantId (authTenantId potrebbe essere usato qui se tenantId non è ancora settato)
+  }, [userRole, tenantId]); // Dipendenze: userRole e tenantId (authTenantId potrebbe essere usato qui se tenantId non è ancora settato)
 
   const handleResendInvite = async (invitationId) => {
     if (!tenantId) {
@@ -229,8 +229,8 @@ const Invitations = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Errore sconosciuto durante l\'eliminazione dell\'invito.' }));
-        throw new Error(errorData.error || `Errore ${response.status} durante l\'eliminazione dell\'invito`);
+        const errorData = await response.json().catch(() => ({ error: "Errore sconosciuto durante l\"eliminazione dell\"invito." }));
+        throw new Error(errorData.error || `Errore ${response.status} durante l'eliminazione dell'invito`);
       }
 
       setSentInvitations(prevInvitations => 
@@ -239,8 +239,8 @@ const Invitations = () => {
       setListOperationsMessage({ type: 'success', text: 'Invito eliminato con successo!' });
 
     } catch (error) {
-      console.error('Errore durante l\'eliminazione dell\'invito:', error);
-      setListOperationsMessage({ type: 'error', text: `Errore durante l\'eliminazione dell\'invito: ${error.message}` });
+      console.error("Errore durante l'eliminazione dell'invito:", error);
+      setListOperationsMessage({ type: 'error', text: `Errore durante l'eliminazione dell'invito: ${error.message}` });
     }
   };
 

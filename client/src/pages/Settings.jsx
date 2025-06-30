@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -17,7 +17,6 @@ import {
   DialogActions,
   Alert,
   CircularProgress,
-  Divider,
   useTheme,
   useMediaQuery,
   Select,
@@ -53,39 +52,39 @@ const Settings = ({ mode, setMode }) => {
   const [originalConfig, setOriginalConfig] = useState(null);
 
   // Fetch Product Matching Configuration
-  const fetchProductMatchingConfig = async () => {
-    console.log('fetchProductMatchingConfig called - isAdmin:', isAdmin);
-    if (!isAdmin) {
-      console.log('fetchProductMatchingConfig - Not admin, returning');
-      return;
-    }
+  const fetchProductMatchingConfig = useCallback(async () => {
+  console.log('fetchProductMatchingConfig called - isAdmin:', isAdmin);
+  if (!isAdmin) {
+    console.log('fetchProductMatchingConfig - Not admin, returning');
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    console.log('fetchProductMatchingConfig - Starting API call');
+    const user = auth.currentUser;
+    if (!user) throw new Error('User not authenticated');
     
-    try {
-      setLoading(true);
-      console.log('fetchProductMatchingConfig - Starting API call');
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-      
-      const token = await user.getIdToken();
-      console.log('fetchProductMatchingConfig - Making request to:', `${API_URL}/api/product-matching/config`);
-      const response = await axios.get(`${API_URL}/api/product-matching/config`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      console.log('fetchProductMatchingConfig - Response received:', response.data);
-      console.log('fetchProductMatchingConfig - Config structure:', Object.keys(response.data.config || {}));
-      setProductMatchingConfig(response.data);
-      setOriginalConfig(JSON.parse(JSON.stringify(response.data)));
-      setError(null);
-    } catch (err) {
-      console.log('fetchProductMatchingConfig - Error occurred:', err);
-      setError('Errore nel caricamento della configurazione Product Matching');
-      console.error('Error fetching product matching config:', err);
-    } finally {
-      setLoading(false);
-      console.log('fetchProductMatchingConfig - Finished');
-    }
-  };
+    const token = await user.getIdToken();
+    console.log('fetchProductMatchingConfig - Making request to:', `${API_URL}/api/product-matching/config`);
+    const response = await axios.get(`${API_URL}/api/product-matching/config`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    console.log('fetchProductMatchingConfig - Response received:', response.data);
+    console.log('fetchProductMatchingConfig - Config structure:', Object.keys(response.data.config || {}));
+    setProductMatchingConfig(response.data);
+    setOriginalConfig(JSON.parse(JSON.stringify(response.data)));
+    setError(null);
+  } catch (err) {
+    console.log('fetchProductMatchingConfig - Error occurred:', err);
+    setError('Errore nel caricamento della configurazione Product Matching');
+    console.error('Error fetching product matching config:', err);
+  } finally {
+    setLoading(false);
+    console.log('fetchProductMatchingConfig - Finished');
+  }
+}, [isAdmin]);
 
   // Save Product Matching Configuration
   const saveProductMatchingConfig = async () => {
@@ -197,7 +196,7 @@ const Settings = ({ mode, setMode }) => {
   useEffect(() => {
     console.log('useEffect triggered - isAdmin:', isAdmin);
     fetchProductMatchingConfig();
-  }, [isAdmin]);
+  }, [isAdmin, fetchProductMatchingConfig]); // Aggiunta fetchProductMatchingConfig
 
   const handleThemeChange = () => {
     setMode(prev => (prev === 'light' ? 'dark' : 'light'));

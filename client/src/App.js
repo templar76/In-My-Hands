@@ -1,7 +1,9 @@
 import React, { Suspense, lazy, useState } from 'react';
+// Aggiungi import
+import customTheme from './theme/customTheme';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { ThemeProvider, CssBaseline, createTheme } from '@mui/material';
+import { ThemeProvider, CssBaseline} from '@mui/material';
 import { I18nextProvider } from 'react-i18next';
 import InvoiceUpload from './pages/InvoiceUpload';
 import Layout from './components/Layout';
@@ -42,18 +44,19 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   const [mode, setMode] = useState('light');
-  const theme = createTheme({
-    palette: {
-      mode,
-      primary: { main: '#3F51B5' },
-      secondary: { main: '#E91E63' },
-    },
-    typography: { fontFamily: '"Inter", sans-serif' },
-  });
+  // Theme configuration with light/dark mode support
+  // const theme = createTheme({
+  //   palette: {
+  //     mode,
+  //     primary: { main: '#3F51B5' },
+  //     secondary: { main: '#E91E63' },
+  //   },
+  //   typography: { fontFamily: '"Inter", sans-serif' },
+  // });
 
   return (
     <I18nextProvider i18n={i18n}>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={customTheme}>
         <CssBaseline />
         <ErrorBoundary>
           <Layout mode={mode} setMode={setMode}>

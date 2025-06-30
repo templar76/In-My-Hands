@@ -1,1 +1,5 @@
 client/src/pages/__Home.jsx
+server/serviceAccountKey.json
+server/.DS_Store
+server/src/.DS_Store
+.DS_Store

@@ -1,4 +1,5 @@
-// client/src/hooks/useResponsive.js
+// client/src/hooks/useResponsive.js (VERSIONE CORRETTA)
+import React from 'react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -24,7 +25,6 @@ export const useResponsive = () => {
     // Navigazione
     showBottomNav: isMobile,
     showSidebar: !isMobile,
-    sidebarVariant: isDesktop ? 'permanent' : 'temporary',
     sidebarWidth: isDesktop ? 280 : 260,
     
     // Header
@@ -144,7 +144,7 @@ export const useResponsive = () => {
 // Hook per gestire lo stato della sidebar
 export const useSidebarState = () => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const { isMobile, sidebarVariant } = useResponsive();
+  const { isMobile } = useResponsive();
   
   const handleSidebarToggle = () => {
     setSidebarOpen(!sidebarOpen);

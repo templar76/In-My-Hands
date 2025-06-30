@@ -1,384 +1,454 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// client/src/pages/Home.jsx (VERSIONE AGGIORNATA)
+import React from 'react';
 import {
   Box,
   Typography,
   Grid,
   Card,
   CardContent,
-  Alert,
-  AlertTitle,
   Button,
+  Chip,
   LinearProgress,
-  IconButton,
-  Collapse,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
-  CircularProgress
+  Avatar,
+  Divider,
 } from '@mui/material';
 import {
-  Warning,
   TrendingUp,
+  Receipt,
   Inventory,
-  PendingActions,
-  ContentCopy,
-  ExpandMore,
-  ExpandLess,
-  Refresh,
-  Security
+  Business,
+  NotificationsActive,
+  Add,
+  FileUpload,
+  Analytics,
+  Warning,
+  CheckCircle,
+  Schedule,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { auth } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { getApiUrl } from '../utils/apiConfig';
+import { useResponsive } from '../hooks/useResponsive';
+import KPICard, { KPIGrid, RevenueKPI, InvoicesKPI, SuppliersKPI, AlertsKPI } from '../components/ui/KPICard';
 
 const Home = () => {
-  const [insights, setInsights] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [expandedDuplicates, setExpandedDuplicates] = useState(false);
-  const [user, setUser] = useState(null);
-  const navigate = useNavigate();
-  const API_URL = getApiUrl();
-  
-  // Ottieni il ruolo dell'utente dal Redux store
-  const { role, isAuthenticated } = useSelector(state => state.auth);
-  const isAdmin = role === 'admin';
+  const { isMobile, getGridProps, getSpacing } = useResponsive();
 
-  // Monitora lo stato di autenticazione
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+  // Dati mock - in produzione verranno dalle API
+  const kpiData = {
+    revenue: { value: 125000, trend: 'up', trendValue: '+12.5%' },
+    invoices: { value: 47, trend: 'up', trendValue: '+8' },
+    suppliers: { value: 23, trend: 'neutral', trendValue: '0' },
+    alerts: { value: 5, trend: 'down', trendValue: '-2' },
+  };
 
-  // Funzione per recuperare gli insights dal backend (solo per admin)
-  const fetchInsights = useCallback(async () => {
-    if (!user || !isAuthenticated) {
-      setError('Utente non autenticato');
-      setLoading(false);
-      return;
+  const recentInvoices = [
+    { id: 1, supplier: 'Fornitore ABC', amount: 1250, status: 'processed', date: '2025-06-30' },
+    { id: 2, supplier: 'Fornitore XYZ', amount: 890, status: 'pending', date: '2025-06-29' },
+    { id: 3, supplier: 'Fornitore DEF', amount: 2100, status: 'processed', date: '2025-06-28' },
+    { id: 4, supplier: 'Fornitore GHI', amount: 750, status: 'error', date: '2025-06-27' },
+  ];
+
+  const activeAlerts = [
+    { id: 1, type: 'price', message: 'Prezzo prodotto A aumentato del 15%', severity: 'warning' },
+    { id: 2, type: 'stock', message: 'Scorte prodotto B in esaurimento', severity: 'error' },
+    { id: 3, type: 'supplier', message: 'Nuovo fornitore aggiunto', severity: 'info' },
+  ];
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'processed': return 'success';
+      case 'pending': return 'warning';
+      case 'error': return 'error';
+      default: return 'default';
     }
+  };
 
-    if (!isAdmin) {
-      setError('Accesso negato: solo gli amministratori possono visualizzare gli insights');
-      setLoading(false);
-      return;
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'processed': return 'Elaborata';
+      case 'pending': return 'In attesa';
+      case 'error': return 'Errore';
+      default: return 'Sconosciuto';
     }
+  };
 
-    try {
-      setLoading(true);
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/api/products/import/insights`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Errore nel recupero degli insights');
-      }
-      
-      const data = await response.json();
-      setInsights(data);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'error': return 'error';
+      case 'warning': return 'warning';
+      case 'info': return 'info';
+      default: return 'default';
     }
-  }, [API_URL, user, isAuthenticated, isAdmin]);
-
-  useEffect(() => {
-    if (user && isAuthenticated) {
-      if (isAdmin) {
-        fetchInsights();
-      } else {
-        setLoading(false);
-      }
-    }
-  }, [fetchInsights, user, isAuthenticated, isAdmin]);
-
-  // Componente per le statistiche principali
-  const StatsCard = ({ title, value, icon, color = 'primary', subtitle }) => (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
-              {title}
-            </Typography>
-            <Typography variant="h4" component="div" color={color}>
-              {value}
-            </Typography>
-            {subtitle && (
-              <Typography variant="body2" color="textSecondary">
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Box color={color}>
-            {icon}
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-
-  // Componente per l'analisi dei duplicati
-  const DuplicateAnalysis = ({ duplicateAnalysis }) => (
-    <Card>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-          <Typography variant="h6">Analisi Duplicati</Typography>
-          <IconButton onClick={() => setExpandedDuplicates(!expandedDuplicates)}>
-            {expandedDuplicates ? <ExpandLess /> : <ExpandMore />}
-          </IconButton>
-        </Box>
-        
-        <Collapse in={expandedDuplicates}>
-          <List>
-            {duplicateAnalysis.topDuplicates?.map((duplicate, index) => (
-              <ListItem key={index}>
-                <ListItemIcon>
-                  <ContentCopy color="warning" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={duplicate.description}
-                  secondary={`${duplicate.count} prodotti simili`}
-                />
-              </ListItem>
-            ))}
-          </List>
-        </Collapse>
-      </CardContent>
-    </Card>
-  );
-
-  // Componente per i trend dei prodotti
-  const ProductTrend = ({ trends }) => (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>Trend Prodotti</Typography>
-        <Box>
-          {trends.map((trend, index) => (
-            <Box key={index} mb={1}>
-              <Typography variant="body2">{trend.period}</Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={trend.percentage} 
-                sx={{ height: 8, borderRadius: 4 }}
-              />
-              <Typography variant="caption">{trend.count} prodotti</Typography>
-            </Box>
-          ))}
-        </Box>
-      </CardContent>
-    </Card>
-  );
-
-  // Se l'utente non è autenticato
-  if (!isAuthenticated) {
-    return (
-      <Box p={3}>
-        <Alert severity="warning">
-          <AlertTitle>Accesso Richiesto</AlertTitle>
-          Devi effettuare il login per accedere alla dashboard.
-        </Alert>
-      </Box>
-    );
-  }
-
-  // Se l'utente non è admin
-  if (!isAdmin) {
-    return (
-      <Box p={3}>
-        <Alert severity="info" icon={<Security />}>
-          <AlertTitle>Dashboard Amministratore</AlertTitle>
-          Questa sezione è riservata agli amministratori. Gli insights sui prodotti e le funzionalità di import sono disponibili solo per gli utenti con ruolo admin.
-        </Alert>
-        
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Typography variant="h5" gutterBottom>
-              Benvenuto nella Dashboard
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              Come operatore, puoi accedere alle seguenti funzionalità:
-            </Typography>
-            <Box mt={2}>
-              <Button 
-                variant="outlined" 
-                onClick={() => navigate('/products')}
-                sx={{ mr: 2, mb: 1 }}
-              >
-                Visualizza Prodotti
-              </Button>
-              <Button 
-                variant="outlined" 
-                onClick={() => navigate('/alerts')}
-                sx={{ mr: 2, mb: 1 }}
-              >
-                Visualizza Alert
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-    );
-  }
-
-  // Dashboard per amministratori
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Caricamento insights...
-        </Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box p={3}>
-        <Alert severity="error">
-          <AlertTitle>Errore</AlertTitle>
-          {error}
-          <Box mt={2}>
-            <Button 
-              variant="outlined" 
-              startIcon={<Refresh />}
-              onClick={fetchInsights}
-            >
-              Riprova
-            </Button>
-          </Box>
-        </Alert>
-      </Box>
-    );
-  }
+  };
 
   return (
-    <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        Dashboard Amministratore
-      </Typography>
-      
-      {/* Notificazioni e raccomandazioni */}
-      {insights?.recommendations && insights.recommendations.length > 0 && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <AlertTitle>Raccomandazioni Sistema</AlertTitle>
-          <List dense>
-            {insights.recommendations.map((recommendation, index) => (
-              <ListItem key={index}>
-                <ListItemText primary={recommendation.message} />
-              </ListItem>
-            ))}
-          </List>
-        </Alert>
-      )}
+    <Box sx={{ width: '100%' }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 4 }}>
+        <Typography 
+          variant={isMobile ? 'h5' : 'h4'} 
+          fontWeight="bold" 
+          gutterBottom
+          sx={{
+            background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
+          Dashboard
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Benvenuto nella tua dashboard aziendale. Ecco una panoramica delle attività recenti.
+        </Typography>
+      </Box>
 
-      {/* Statistiche principali */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid xs={12} sm={6} md={3}>
-          <StatsCard
-            title="Prodotti Totali"
-            value={insights?.overview?.totalProducts || 0}
-            icon={<Inventory />}
-            color="primary"
+      {/* KPI Cards */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" fontWeight={600} gutterBottom>
+          Metriche Principali
+        </Typography>
+        <KPIGrid spacing={getSpacing().current}>
+          <RevenueKPI 
+            value={kpiData.revenue.value}
+            trend={kpiData.revenue.trend}
+            trendValue={kpiData.revenue.trendValue}
           />
-        </Grid>
-        <Grid xs={12} sm={6} md={3}>
-          <StatsCard
-            title="Prodotti Recenti"
-            value={insights?.overview?.recentProducts || 0}
-            icon={<TrendingUp />}
-            color="success"
+          <InvoicesKPI 
+            value={kpiData.invoices.value}
+            trend={kpiData.invoices.trend}
+            trendValue={kpiData.invoices.trendValue}
           />
-        </Grid>
-        <Grid xs={12} sm={6} md={3}>
-          <StatsCard
-            title="In Attesa Approvazione"
-            value={insights?.overview?.pendingApproval || 0}
-            icon={<PendingActions />}
-            color={insights?.overview?.pendingApproval > 0 ? "warning" : "success"}
+          <SuppliersKPI 
+            value={kpiData.suppliers.value}
+            trend={kpiData.suppliers.trend}
+            trendValue={kpiData.suppliers.trendValue}
           />
-        </Grid>
-        <Grid xs={12} sm={6} md={3}>
-          <StatsCard
-            title="Rischio Duplicati"
-            value={insights?.overview?.duplicateRisk || 0}
-            icon={<Warning />}
-            color={insights?.overview?.duplicateRisk > 0 ? "error" : "success"}
+          <AlertsKPI 
+            value={kpiData.alerts.value}
+            trend={kpiData.alerts.trend}
+            trendValue={kpiData.alerts.trendValue}
           />
-        </Grid>
-      </Grid>
+        </KPIGrid>
+      </Box>
 
-      {/* Analisi dettagliata */}
+      {/* Quick Actions */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" fontWeight={600} gutterBottom>
+          Azioni Rapide
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<FileUpload />}
+              sx={{ 
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Carica Fattura
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<Add />}
+              sx={{ 
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Nuovo Prodotto
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<Business />}
+              sx={{ 
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Aggiungi Fornitore
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<Analytics />}
+              sx={{ 
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Visualizza Report
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Content Grid */}
       <Grid container spacing={3}>
-        {insights?.duplicateAnalysis && (
-          <Grid xs={12} md={6}>
-            <DuplicateAnalysis duplicateAnalysis={insights.duplicateAnalysis} />
-          </Grid>
-        )}
-        
-        {insights?.trends?.productCreation && (
-          <Grid xs={12} md={6}>
-            <ProductTrend trends={insights.trends.productCreation} />
-          </Grid>
-        )}
-      </Grid>
+        {/* Recent Invoices */}
+        <Grid item xs={12} lg={8}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Fatture Recenti
+                </Typography>
+                <Button size="small" endIcon={<TrendingUp />}>
+                  Vedi tutte
+                </Button>
+              </Box>
+              
+              <List disablePadding>
+                {recentInvoices.map((invoice, index) => (
+                  <React.Fragment key={invoice.id}>
+                    <ListItem 
+                      sx={{ 
+                        px: 0,
+                        py: 1.5,
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          borderRadius: 1,
+                        },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <Avatar sx={{ bgcolor: 'primary.light', width: 40, height: 40 }}>
+                          <Receipt />
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle2" fontWeight={600}>
+                              {invoice.supplier}
+                            </Typography>
+                            <Typography variant="h6" fontWeight={700} color="primary.main">
+                              €{invoice.amount.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(invoice.date).toLocaleDateString('it-IT')}
+                            </Typography>
+                            <Chip 
+                              label={getStatusText(invoice.status)}
+                              size="small"
+                              color={getStatusColor(invoice.status)}
+                              variant="outlined"
+                            />
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {index < recentInvoices.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
 
-      {/* Azioni rapide per admin */}
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Azioni Rapide
-          </Typography>
-          <Box>
-            {insights?.overview?.pendingApproval > 0 && (
+        {/* Active Alerts */}
+        <Grid item xs={12} lg={4}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Alert Attivi
+                </Typography>
+                <Chip 
+                  label={activeAlerts.length} 
+                  size="small" 
+                  color="error" 
+                  variant="filled"
+                />
+              </Box>
+              
+              <List disablePadding>
+                {activeAlerts.map((alert, index) => (
+                  <React.Fragment key={alert.id}>
+                    <ListItem 
+                      sx={{ 
+                        px: 0,
+                        py: 1.5,
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          borderRadius: 1,
+                        },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: `${getSeverityColor(alert.severity)}.light`,
+                            color: `${getSeverityColor(alert.severity)}.dark`,
+                            width: 36,
+                            height: 36,
+                          }}
+                        >
+                          {alert.severity === 'error' ? <Warning /> : 
+                           alert.severity === 'warning' ? <Schedule /> : 
+                           <CheckCircle />}
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" fontWeight={500}>
+                            {alert.message}
+                          </Typography>
+                        }
+                        secondary={
+                          <Chip 
+                            label={alert.type.toUpperCase()}
+                            size="small"
+                            color={getSeverityColor(alert.severity)}
+                            variant="outlined"
+                            sx={{ mt: 0.5, fontSize: '0.7rem' }}
+                          />
+                        }
+                      />
+                    </ListItem>
+                    {index < activeAlerts.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+              
               <Button 
-                variant="contained" 
-                color="warning"
-                onClick={() => navigate('/products?filter=pending')}
-                sx={{ mr: 2, mb: 1 }}
+                fullWidth 
+                variant="outlined" 
+                sx={{ mt: 2, textTransform: 'none' }}
+                startIcon={<NotificationsActive />}
               >
-                Gestisci Approvazioni ({insights.overview.pendingApproval})
+                Gestisci Alert
               </Button>
-            )}
-            <Button 
-              variant="outlined"
-              onClick={() => navigate('/invoices')}
-              sx={{ mr: 2, mb: 1 }}
-            >
-              Importa Fatture
-            </Button>
-            <Button 
-              variant="outlined"
-              onClick={() => navigate('/settings')}
-              sx={{ mr: 2, mb: 1 }}
-            >
-              Configurazioni
-            </Button>
-            <Button 
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={fetchInsights}
-              sx={{ mb: 1 }}
-            >
-              Aggiorna Dati
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Progress Section */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Obiettivi Mensili
+              </Typography>
+              
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        Fatturato Mensile
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        75%
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={75} 
+                      sx={{ 
+                        height: 8, 
+                        borderRadius: 4,
+                        backgroundColor: 'grey.200',
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 4,
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      €125.000 / €167.000
+                    </Typography>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={4}>
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        Fatture Elaborate
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        94%
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={94} 
+                      color="success"
+                      sx={{ 
+                        height: 8, 
+                        borderRadius: 4,
+                        backgroundColor: 'grey.200',
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 4,
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      47 / 50 fatture
+                    </Typography>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12} md={4}>
+                  <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        Fornitori Attivi
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        85%
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={85} 
+                      color="warning"
+                      sx={{ 
+                        height: 8, 
+                        borderRadius: 4,
+                        backgroundColor: 'grey.200',
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 4,
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      23 / 27 fornitori
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 };
 
 export default Home;
+

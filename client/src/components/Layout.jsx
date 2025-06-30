@@ -1,7 +1,7 @@
-// client/src/components/Layout.jsx (VERSIONE CORRETTA)
-import React, { useState } from 'react';
+// client/src/components/Layout.jsx (VERSIONE FINALE CORRETTA)
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import {
   Box,
   CssBaseline,
@@ -12,31 +12,33 @@ import ResponsiveSidebar from './ResponsiveSidebar';
 import BottomNavigation from './BottomNavigation';
 import TopBar from './TopBar';
 
-// Import delle pagine (mantenendo la struttura originale)
+// Import delle pagine esistenti nel progetto
 import Home from '../pages/Home';
 import Invoices from '../pages/Invoices';
 import Products from '../pages/Products';
 import Suppliers from '../pages/Suppliers';
 import Alerts from '../pages/Alerts';
 import Settings from '../pages/Settings';
-import Profile from '../pages/MyProfilePage';
-import Users from '../pages/Users';
-import Company from '../pages/Company';
+import MyProfilePage from '../pages/MyProfilePage';
+import Invitations from '../pages/Invitations';
 import InvoiceUpload from '../pages/InvoiceUpload';
-import ProductsDuplicates from '../pages/ProductDuplicatesReview';
+import ProductDetail from '../pages/ProductDetail';
+import ProductDuplicatesReview from '../pages/ProductDuplicatesReview';
+import SupplierDetail from '../pages/SupplierDetail';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
+import NotFound from '../pages/NotFound';
+import ResetPassword from '../pages/ResetPassword';
+import AcceptInvitationPage from '../pages/AcceptInvitationPage';
+import CompleteTenantRegistrationPage from '../pages/CompleteTenantRegistrationPage';
 
 const Layout = ({ children }) => {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   
   // Responsive hooks
   const {
-    isMobile,
-    isTablet,
     isDesktop,
     showBottomNav,
     showSidebar,
@@ -59,9 +61,9 @@ const Layout = ({ children }) => {
   // Recupera il ruolo dell'utente
   const userRole = user ? user.role : null;
   
-  // Definizioni menu (mantenendo la struttura originale)
+  // Definizioni menu (adattate alle pagine esistenti)
   const menuPermissions = {
-    admin: ['Dashboard', 'Fatture', 'Prodotti', 'Fornitori', 'Alert', 'Settings', 'Users', 'Company'],
+    admin: ['Dashboard', 'Fatture', 'Prodotti', 'Fornitori', 'Alert', 'Settings', 'Invitations'],
     operator: ['Dashboard', 'Prodotti', 'Alert'],
   };
   
@@ -72,8 +74,7 @@ const Layout = ({ children }) => {
     { text: 'Fornitori', icon: 'PeopleIcon', path: '/suppliers' },
     { text: 'Alert', icon: 'NotificationsIcon', path: '/alerts' },
     { text: 'Settings', icon: 'SettingsIcon', path: '/settings' },
-    { text: 'Users', icon: 'PersonAddIcon', path: '/users' },
-    { text: 'Company', icon: 'BusinessIcon', path: '/company' },
+    { text: 'Invitations', icon: 'PersonAddIcon', path: '/invitations' },
   ];
   
   // Filtra le voci di menu in base al ruolo dell'utente
@@ -91,7 +92,7 @@ const Layout = ({ children }) => {
     );
   }
   
-  // Funzione per renderizzare la pagina corrente (mantenendo la logica originale)
+  // Funzione per renderizzare la pagina corrente (con pagine esistenti)
   const renderCurrentPage = () => {
     switch (location.pathname) {
       case '/':
@@ -102,27 +103,35 @@ const Layout = ({ children }) => {
       case '/products':
         return <Products />;
       case '/products/duplicates':
-        return <ProductsDuplicates />;
+        return <ProductDuplicatesReview />;
+      case '/product-detail':
+        return <ProductDetail />;
       case '/suppliers':
         return <Suppliers />;
+      case '/supplier-detail':
+        return <SupplierDetail />;
       case '/alerts':
         return <Alerts />;
       case '/settings':
         return <Settings />;
       case '/profile':
-        return <Profile />;
-      case '/users':
-        return <Users />;
-      case '/company':
-        return <Company />;
+        return <MyProfilePage />;
+      case '/invitations':
+        return <Invitations />;
       case '/upload':
         return <InvoiceUpload />;
       case '/login':
         return <Login />;
       case '/register':
         return <Register />;
+      case '/reset-password':
+        return <ResetPassword />;
+      case '/accept-invitation':
+        return <AcceptInvitationPage />;
+      case '/complete-registration':
+        return <CompleteTenantRegistrationPage />;
       default:
-        return <Home />;
+        return <NotFound />;
     }
   };
   

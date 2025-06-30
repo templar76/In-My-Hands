@@ -1,146 +1,125 @@
-// client/src/components/BottomNavigation.jsx
+// client/src/components/BottomNavigation.jsx (VERSIONE PULITA)
 import React from 'react';
-import { 
-  BottomNavigation, 
-  BottomNavigationAction, 
+import {
+  BottomNavigation as MuiBottomNavigation,
+  BottomNavigationAction,
   Paper,
   Badge,
-  Box,
-  useTheme,
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import {
-  Dashboard,
+  Home,
   Receipt,
-  Inventory,
-  Business,
-  NotificationsActive,
+  ShoppingCart,
+  People,
+  Notifications,
+  Settings,
+  PersonAdd,
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
 
-const bottomNavItems = [
-  { 
-    label: 'Home', 
-    icon: <Dashboard />, 
-    path: '/',
-    badge: null,
+const StyledBottomNavigation = styled(MuiBottomNavigation)(({ theme }) => ({
+  height: 80,
+  borderTop: `1px solid ${theme.palette.divider}`,
+  backgroundColor: theme.palette.background.paper,
+  '& .MuiBottomNavigationAction-root': {
+    minWidth: 'auto',
+    padding: theme.spacing(1),
+    '&.Mui-selected': {
+      color: theme.palette.primary.main,
+    },
   },
-  { 
-    label: 'Fatture', 
-    icon: <Receipt />, 
-    path: '/fatture',
-    badge: 12,
-  },
-  { 
-    label: 'Prodotti', 
-    icon: <Inventory />, 
-    path: '/prodotti',
-    badge: null,
-  },
-  { 
-    label: 'Fornitori', 
-    icon: <Business />, 
-    path: '/fornitori',
-    badge: null,
-  },
-  { 
-    label: 'Alert', 
-    icon: <NotificationsActive />, 
-    path: '/alert',
-    badge: 3,
-  },
-];
+}));
 
-const BottomNavigationComponent = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const theme = useTheme();
+const StyledBottomNavigationAction = styled(BottomNavigationAction)(({ theme }) => ({
+  '& .MuiBottomNavigationAction-label': {
+    fontSize: '0.75rem',
+    fontWeight: 500,
+    marginTop: theme.spacing(0.5),
+    '&.Mui-selected': {
+      fontSize: '0.75rem',
+    },
+  },
+}));
 
-  const currentIndex = bottomNavItems.findIndex(item => item.path === location.pathname);
+const getIcon = (iconName, hasNotifications = false) => {
+  const iconMap = {
+    HomeIcon: Home,
+    ReceiptIcon: Receipt,
+    ShoppingCartIcon: ShoppingCart,
+    PeopleIcon: People,
+    NotificationsIcon: Notifications,
+    SettingsIcon: Settings,
+    PersonAddIcon: PersonAdd,
+  };
+  
+  const IconComponent = iconMap[iconName] || Home;
+  
+  if (hasNotifications) {
+    return (
+      <Badge color="error" variant="dot">
+        <IconComponent />
+      </Badge>
+    );
+  }
+  
+  return <IconComponent />;
+};
+
+const BottomNavigation = ({ 
+  menuItems = [], 
+  currentPath = '/', 
+  onNavigate,
+  notifications = {},
+  ...props 
+}) => {
+  const getCurrentValue = () => {
+    const currentItem = menuItems.find(item => item.path === currentPath);
+    return currentItem ? menuItems.indexOf(currentItem) : 0;
+  };
 
   const handleChange = (event, newValue) => {
-    navigate(bottomNavItems[newValue].path);
+    if (menuItems[newValue] && onNavigate) {
+      onNavigate(menuItems[newValue].path);
+    }
   };
+
+  if (!menuItems.length) {
+    return null;
+  }
 
   return (
     <Paper 
+      elevation={8} 
       sx={{ 
         position: 'fixed', 
         bottom: 0, 
         left: 0, 
-        right: 0, 
+        right: 0,
         zIndex: 1000,
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        backgroundColor: 'background.paper',
-        boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.1)',
-      }} 
-      elevation={0}
+      }}
+      {...props}
     >
-      <BottomNavigation
-        value={currentIndex}
+      <StyledBottomNavigation
+        value={getCurrentValue()}
         onChange={handleChange}
         showLabels
-        sx={{
-          height: 64,
-          '& .MuiBottomNavigationAction-root': {
-            minWidth: 'auto',
-            padding: '6px 12px 8px',
-            transition: 'all 0.2s ease-in-out',
-            '&.Mui-selected': {
-              color: 'primary.main',
-              '& .MuiBottomNavigationAction-label': {
-                fontSize: '0.75rem',
-                fontWeight: 600,
-              },
-            },
-            '&:not(.Mui-selected)': {
-              color: 'text.secondary',
-              '& .MuiBottomNavigationAction-label': {
-                fontSize: '0.7rem',
-                fontWeight: 500,
-              },
-            },
-            '& .MuiBottomNavigationAction-label': {
-              transition: 'all 0.2s ease-in-out',
-            },
-          },
-        }}
       >
-        {bottomNavItems.map((item, index) => (
-          <BottomNavigationAction
-            key={item.label}
-            label={item.label}
-            icon={
-              item.badge ? (
-                <Badge 
-                  badgeContent={item.badge} 
-                  color="error"
-                  sx={{
-                    '& .MuiBadge-badge': {
-                      fontSize: '0.6rem',
-                      height: 16,
-                      minWidth: 16,
-                      fontWeight: 600,
-                    },
-                  }}
-                >
-                  {item.icon}
-                </Badge>
-              ) : (
-                item.icon
-              )
-            }
-            sx={{
-              '&.Mui-selected': {
-                transform: 'scale(1.1)',
-              },
-            }}
-          />
-        ))}
-      </BottomNavigation>
+        {menuItems.map((item, index) => {
+          const hasNotifications = notifications[item.path] > 0;
+          
+          return (
+            <StyledBottomNavigationAction
+              key={item.path}
+              label={item.text}
+              icon={getIcon(item.icon, hasNotifications)}
+              value={index}
+            />
+          );
+        })}
+      </StyledBottomNavigation>
     </Paper>
   );
 };
 
-export default BottomNavigationComponent;
+export default BottomNavigation;
 

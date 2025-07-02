@@ -4,4 +4,4 @@ client/.env
 server/.env
 .DS_Store
 server/Data/
-/Documentazione/
+Documentazione/

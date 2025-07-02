@@ -3,3 +3,5 @@ client/src/pages/__Home.jsx
 client/.env
 server/.env
 .DS_Store
+server/Data/
+Documentazione

@@ -3,7 +3,6 @@
 import express from 'express';
 import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
-import { param, validationResult } from 'express-validator';
 import {
   getDuplicateGroups,
   mergeGroup,
@@ -12,50 +11,34 @@ import {
 
 const router = express.Router();
 
-// middleware to validate that :groupId is a valid MongoDB ObjectId
-const validateGroupId = [
-  param('groupId')
-    .isMongoId()
-    .withMessage('Invalid format for groupId'),
-  (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    next();
-  }
-];
-
 /**
- * GET /api/products/duplicates
+ * GET /api/product-duplicates
  * Returns all duplicate product groups.
  */
 router.get(
-  '/duplicates',
+  '/',
   verifyFirebaseToken,
   getDuplicateGroups
 );
 
 /**
- * POST /api/products/duplicates/:groupId/merge
+ * POST /api/product-duplicates/:groupId/merge
  * Merge a duplicate group by selecting one canonical product.
  */
 router.post(
-  '/duplicates/:groupId/merge',
+  '/:groupId/merge',
   verifyFirebaseToken,
-  validateGroupId,
   requireAdmin,
   mergeGroup
 );
 
 /**
- * POST /api/products/duplicates/:groupId/ignore
+ * POST /api/product-duplicates/:groupId/ignore
  * Mark all items in a duplicate group as ignored.
  */
 router.post(
-  '/duplicates/:groupId/ignore',
+  '/:groupId/ignore',
   verifyFirebaseToken,
-  validateGroupId,
   requireAdmin,
   ignoreGroup
 );

@@ -80,7 +80,7 @@ app.use('/api', invitationRoutes);
 app.use('/api/products/import', productImportRoutes);  // ✅ CORRETTO
 
 // Routes per duplicati (specifiche)
-app.use('/api/products/duplicates', productDuplicateRoutes);
+app.use('/api/product-duplicates', productDuplicateRoutes);
 
 // Routes generiche prodotti (per ultime)
 app.use('/api/products', productRoutes);

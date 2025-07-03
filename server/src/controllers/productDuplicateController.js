@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 
-const tenantObjectId = (req) => mongoose.Types.ObjectId(req.user.tenantId);
+const tenantObjectId = (req) => new mongoose.Types.ObjectId(req.user.tenantId);
 
 /**
  * GET /api/products/duplicates

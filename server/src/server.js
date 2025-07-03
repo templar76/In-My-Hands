@@ -32,8 +32,8 @@ app.use('/api/suppliers', supplierRoutes);
 // Specifico per import (prima delle routes generiche)
 app.use('/api/products/import', productImportRoutes);
 
-// Routes per duplicati (specifiche)
-app.use('/api/products', productDuplicateRoutes);
+// Routes per duplicati (specifiche) - NUOVO PERCORSO
+app.use('/api/product-duplicates', productDuplicateRoutes);
 
 // Routes generiche prodotti (per ultime)
 app.use('/api/products', productRoutes);

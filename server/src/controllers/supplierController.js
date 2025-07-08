@@ -458,7 +458,10 @@ export const getSupplierDetails = async (req, res) => {
       { $unwind: '$lineItems' },
       {
         $group: {
-          _id: '$lineItems.description',
+          _id: {
+            productId: '$lineItems.matchedProductId', // Usa l'ObjectId del prodotto
+            description: '$lineItems.description' // Mantieni anche la descrizione per il display
+          },
           totalQuantity: { $sum: '$lineItems.quantity' },
           totalSpent: { $sum: '$lineItems.total' },
           avgPrice: { $avg: '$lineItems.unitPrice' },

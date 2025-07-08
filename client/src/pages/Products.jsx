@@ -423,8 +423,7 @@ function Products() {
                 <Select
                   value={category}
                   label="Categoria"
-                  onChange={(e) => setCategory(e.target.value)}
-                >
+                  onChange={(e) => setCategory(e.target.value)}>
                   <MenuItem value="">Tutte</MenuItem>
                   {stats?.categories?.filter(Boolean).map((cat) => (
                     <MenuItem key={cat} value={cat}>
@@ -474,7 +473,7 @@ function Products() {
                   <TableCell>Categoria</TableCell>
                   <TableCell align="right">Spesa Totale</TableCell>
                   <TableCell align="right">Quantità</TableCell>
-                  <TableCell align="center">U.M.</TableCell> {/* Aggiungi questa colonna */}
+                  <TableCell align="center">U.M.</TableCell>
                   <TableCell align="right">Prezzo Medio</TableCell>
                   <TableCell align="right">Ultimo Acquisto</TableCell>
                   <TableCell align="center">Azioni</TableCell>
@@ -540,8 +539,7 @@ function Products() {
                         <IconButton
                           size="small"
                           onClick={() => handleProductClick(product._id)}
-                          title="Vedi dettagli"
-                        >
+                          title="Vedi dettagli">
                           <VisibilityIcon />
                         </IconButton>
                       </TableCell>

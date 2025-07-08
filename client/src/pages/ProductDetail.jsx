@@ -19,6 +19,9 @@ import {
   TextField,
   Switch,
   FormControlLabel,
+  FormControl,
+  RadioGroup,
+  Radio,
   Alert,
   CircularProgress,
   IconButton,
@@ -90,8 +93,16 @@ const ProductDetail = () => {
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Stati per gli alert
   const [alertPrice, setAlertPrice] = useState('');
   const [alertEnabled, setAlertEnabled] = useState(false);
+  const [alertVariationThreshold, setAlertVariationThreshold] = useState('10');
+  const [alertType, setAlertType] = useState('price_threshold');
+  const [existingAlerts, setExistingAlerts] = useState([]);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [alertSuccess, setAlertSuccess] = useState('');
+  const [alertError, setAlertError] = useState('');
 
   const fetchProductDetails = useCallback(async () => {
     try {
@@ -132,11 +143,175 @@ const ProductDetail = () => {
     }
   }, [id]);
 
+  // Funzione per caricare gli alert esistenti
+  const fetchExistingAlerts = useCallback(async () => {
+    try {
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) return;
+      
+      const token = await firebaseUser.getIdToken();
+      const apiUrl = getApiUrl();
+      const response = await axios.get(
+        `${apiUrl}/api/alerts?productId=${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      setExistingAlerts(response.data.alerts || []);
+      
+      // Popola i campi se esiste un alert
+      if (response.data.alerts && response.data.alerts.length > 0) {
+        const alert = response.data.alerts[0];
+        setAlertEnabled(alert.isActive);
+        setAlertType(alert.type);
+        if (alert.type === 'price_threshold') {
+          setAlertPrice(alert.thresholdPrice?.toString() || '');
+        } else {
+          setAlertVariationThreshold(alert.variationThreshold?.toString() || '10');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching alerts:', err);
+    }
+  }, [id]);
+
+  // Funzione per creare/aggiornare alert
+  const handleSaveAlert = async () => {
+    try {
+      setAlertLoading(true);
+      setAlertError('');
+      setAlertSuccess('');
+      
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        setAlertError('Utente non autenticato');
+        return;
+      }
+      
+      const token = await firebaseUser.getIdToken();
+      const apiUrl = getApiUrl();
+      
+      const alertData = {
+        productId: id,
+        type: alertType,
+        isActive: alertEnabled,
+        notificationMethod: 'email'
+      };
+      
+      if (alertType === 'price_threshold') {
+        if (!alertPrice || parseFloat(alertPrice) <= 0) {
+          setAlertError('Inserisci un prezzo soglia valido');
+          return;
+        }
+        alertData.thresholdPrice = parseFloat(alertPrice);
+      } else {
+        alertData.variationThreshold = parseFloat(alertVariationThreshold);
+      }
+      
+      if (existingAlerts.length > 0) {
+        // Aggiorna alert esistente
+        await axios.put(
+          `${apiUrl}/api/alerts/${existingAlerts[0]._id}`,
+          alertData,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+      } else {
+        // Crea nuovo alert
+        await axios.post(
+          `${apiUrl}/api/alerts`,
+          alertData,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+      }
+      
+      setAlertSuccess('Alert salvato con successo!');
+      await fetchExistingAlerts(); // Ricarica gli alert
+      
+    } catch (err) {
+      setAlertError(err.response?.data?.message || 'Errore nel salvataggio dell\'alert');
+      console.error('Error saving alert:', err);
+    } finally {
+      setAlertLoading(false);
+    }
+  };
+
+  // Funzione per eliminare alert
+  const handleDeleteAlert = async (alertId) => {
+    try {
+      setAlertLoading(true);
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) return;
+      
+      const token = await firebaseUser.getIdToken();
+      const apiUrl = getApiUrl();
+      
+      await axios.delete(
+        `${apiUrl}/api/alerts/${alertId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      setAlertSuccess('Alert eliminato con successo!');
+      setAlertEnabled(false);
+      setAlertPrice('');
+      setAlertVariationThreshold('10');
+      await fetchExistingAlerts();
+      
+    } catch (err) {
+      setAlertError('Errore nell\'eliminazione dell\'alert');
+      console.error('Error deleting alert:', err);
+    } finally {
+      setAlertLoading(false);
+    }
+  };
+
+  // Funzione per testare alert
+  const handleTestAlert = async () => {
+    try {
+      setAlertLoading(true);
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser || existingAlerts.length === 0) return;
+      
+      const token = await firebaseUser.getIdToken();
+      const apiUrl = getApiUrl();
+      
+      const response = await axios.post(
+        `${apiUrl}/api/alerts/${existingAlerts[0]._id}/test`,
+        {
+          testPrice: parseFloat(alertPrice) - 1, // Test con prezzo più basso
+          supplierId: productData.purchaseHistory?.transactions?.[0]?.supplier?._id
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      if (response.data.shouldTrigger) {
+        setAlertSuccess('Test completato: l\'alert si attiverebbe con questo prezzo!');
+      } else {
+        setAlertSuccess('Test completato: l\'alert non si attiverebbe con questo prezzo.');
+      }
+      
+    } catch (err) {
+      setAlertError('Errore nel test dell\'alert');
+      console.error('Error testing alert:', err);
+    } finally {
+      setAlertLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchProductDetails();
+      fetchExistingAlerts();
     }
-  }, [fetchProductDetails, isAuthenticated]);
+  }, [fetchProductDetails, fetchExistingAlerts, isAuthenticated]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -396,7 +571,7 @@ const ProductDetail = () => {
                     onChange={(e) => setAlertPrice(e.target.value)}
                     sx={{ mb: 2 }}
                   />
-                  <Button variant="contained" fullWidth>
+                  <Button variant="contained">
                     Conferma Alert
                   </Button>
                 </Box>
@@ -463,7 +638,6 @@ const ProductDetail = () => {
 
         {/* Rimuovi tutto il codice dalle linee 685-732 e sostituisci con: */}
         <TabPanel value={tabValue} index={0}>
-          {/* Overview Tab Content */}
           <Grid container spacing={3}>
             <Grid xs={12} md={3}>
               <Card>
@@ -626,45 +800,183 @@ const ProductDetail = () => {
           <Card>
             <CardContent>
               <Typography variant="h5" gutterBottom>
-                Imposta Alert di Prezzo
+                Gestione Alert di Prezzo
               </Typography>
+              
+              {alertSuccess && (
+                <Alert severity="success" sx={{ mb: 2 }} onClose={() => setAlertSuccess('')}>
+                  {alertSuccess}
+                </Alert>
+              )}
+              
+              {alertError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAlertError('')}>
+                  {alertError}
+                </Alert>
+              )}
+              
               <Grid container spacing={3}>
-                <Grid xs={12} md={6}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={alertEnabled}
-                        onChange={(e) => setAlertEnabled(e.target.checked)}
-                      />
-                    }
-                    label="Abilita alert di prezzo"
-                  />
+                <Grid xs={12} md={8}>
+                  {/* Tipo di Alert */}
+                  <Box mb={3}>
+                    <Typography variant="h6" gutterBottom>
+                      Tipo di Alert
+                    </Typography>
+                    <FormControl component="fieldset">
+                      <RadioGroup
+                        value={alertType}
+                        onChange={(e) => setAlertType(e.target.value)}
+                      >
+                        <FormControlLabel
+                          value="price_threshold"
+                          control={<Radio />}
+                          label="Alert Soglia Prezzo - Notifica quando il prezzo scende sotto una soglia"
+                        />
+                        <FormControlLabel
+                          value="price_variation"
+                          control={<Radio />}
+                          label="Alert Variazione Prezzo - Notifica per variazioni significative"
+                        />
+                      </RadioGroup>
+                    </FormControl>
+                  </Box>
+                  
+                  {/* Configurazione Alert */}
+                  <Box mb={3}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={alertEnabled}
+                          onChange={(e) => setAlertEnabled(e.target.checked)}
+                        />
+                      }
+                      label="Abilita alert"
+                    />
+                  </Box>
+                  
                   {alertEnabled && (
-                    <Box mt={2}>
-                      <TextField
-                        fullWidth
-                        label="Prezzo soglia (€)"
-                        type="number"
-                        value={alertPrice}
-                        onChange={(e) => setAlertPrice(e.target.value)}
-                        helperText="Riceverai una notifica quando il prezzo scende sotto questa soglia"
-                        sx={{ mb: 2 }}
-                      />
-                      <Button variant="contained">
-                        Conferma Alert
-                      </Button>
+                    <Box>
+                      {alertType === 'price_threshold' ? (
+                        <TextField
+                          fullWidth
+                          label="Prezzo soglia (€)"
+                          type="number"
+                          value={alertPrice}
+                          onChange={(e) => setAlertPrice(e.target.value)}
+                          helperText="Riceverai una notifica quando il prezzo scende sotto questa soglia"
+                          sx={{ mb: 2 }}
+                          inputProps={{ min: 0, step: 0.01 }}
+                        />
+                      ) : (
+                        <TextField
+                          fullWidth
+                          label="Soglia variazione (%)"
+                          type="number"
+                          value={alertVariationThreshold}
+                          onChange={(e) => setAlertVariationThreshold(e.target.value)}
+                          helperText="Riceverai una notifica per variazioni di prezzo superiori a questa percentuale"
+                          sx={{ mb: 2 }}
+                          inputProps={{ min: 1, max: 100 }}
+                        />
+                      )}
+                      
+                      <Box display="flex" gap={2} mt={2}>
+                        <Button 
+                          variant="contained" 
+                          onClick={handleSaveAlert}
+                          disabled={alertLoading}
+                          startIcon={alertLoading ? <CircularProgress size={20} /> : <CheckCircle />}
+                        >
+                          {existingAlerts.length > 0 ? 'Aggiorna Alert' : 'Crea Alert'}
+                        </Button>
+                        
+                        {existingAlerts.length > 0 && (
+                          <>
+                            <Button 
+                              variant="outlined" 
+                              onClick={handleTestAlert}
+                              disabled={alertLoading}
+                              startIcon={<Schedule />}
+                            >
+                              Test Alert
+                            </Button>
+                            
+                            <Button 
+                              variant="outlined" 
+                              color="error"
+                              onClick={() => handleDeleteAlert(existingAlerts[0]._id)}
+                              disabled={alertLoading}
+                              startIcon={<Cancel />}
+                            >
+                              Elimina Alert
+                            </Button>
+                          </>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                  
+                  {/* Alert Esistenti */}
+                  {existingAlerts.length > 0 && (
+                    <Box mt={3}>
+                      <Typography variant="h6" gutterBottom>
+                        Alert Attivi
+                      </Typography>
+                      {existingAlerts.map((alert) => (
+                        <Card key={alert._id} variant="outlined" sx={{ mb: 2 }}>
+                          <CardContent>
+                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                              <Box>
+                                <Typography variant="subtitle1">
+                                  {alert.alertType === 'price_threshold' ? 'Soglia Prezzo' : 'Variazione Prezzo'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {alert.alertType === 'price_threshold' 
+                                    ? `Soglia: ${formatCurrency(alert.thresholdPrice)}`
+                                    : `Variazione: ${alert.variationThreshold}%`
+                                  }
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  Stato: {alert.isActive ? 'Attivo' : 'Disattivo'} | 
+                                  Attivazioni: {alert.triggerHistory?.length || 0}
+                                </Typography>
+                              </Box>
+                              <Chip 
+                                label={alert.isActive ? 'Attivo' : 'Disattivo'} 
+                                color={alert.isActive ? 'success' : 'default'}
+                                icon={alert.isActive ? <CheckCircle /> : <Cancel />}
+                              />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </Box>
                   )}
                 </Grid>
-                <Grid xs={12} md={6}>
+                
+                <Grid xs={12} md={4}>
                   <Alert severity="info">
-                    Gli alert verranno inviati via email quando:
-                    <ul>
-                      <li>Il prezzo scende sotto la soglia impostata</li>
-                      <li>Viene rilevato un nuovo fornitore con prezzo migliore</li>
-                      <li>Si verificano variazioni significative di prezzo</li>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Come funzionano gli alert:
+                    </Typography>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      <li><strong>Soglia Prezzo:</strong> Notifica quando il prezzo scende sotto il valore impostato</li>
+                      <li><strong>Variazione Prezzo:</strong> Notifica per cambiamenti significativi rispetto al prezzo medio</li>
+                      <li><strong>Frequenza:</strong> Controllo automatico ogni ora</li>
+                      <li><strong>Notifiche:</strong> Inviate via email</li>
                     </ul>
                   </Alert>
+                  
+                  {overview?.averagePrice && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      <Typography variant="subtitle2">
+                        Prezzo medio attuale: <strong>{formatCurrency(overview.averagePrice)}</strong>
+                      </Typography>
+                      <Typography variant="body2">
+                        Considera questo valore per impostare la soglia
+                      </Typography>
+                    </Alert>
+                  )}
                 </Grid>
               </Grid>
             </CardContent>

@@ -180,9 +180,10 @@ const SupplierDetail = () => {
 
   // Configurazione grafico prodotti più acquistati
   const topProductsData = {
-    labels: filteredProducts.slice(0, 10).map(product => 
-      product._id.length > 30 ? product._id.substring(0, 30) + '...' : product._id
-    ),
+    labels: filteredProducts.slice(0, 10).map(product => {
+      const description = product._id.description || product._id;
+      return description.length > 30 ? description.substring(0, 30) + '...' : description;
+    }),
     datasets: [{
       label: 'Spesa Totale (€)',
       data: filteredProducts.slice(0, 10).map(product => product.totalSpent),
@@ -515,7 +516,7 @@ const SupplierDetail = () => {
                   <TableRow key={index}>
                     <TableCell>
                       <Typography variant="body2">
-                        {product._id}
+                        {product._id.description}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
@@ -536,8 +537,7 @@ const SupplierDetail = () => {
                         variant="outlined"
                         startIcon={<ShoppingCart />}
                         onClick={() => {
-                          // Qui potresti navigare alla scheda prodotto
-                          console.log('Vai alla scheda prodotto:', product._id);
+                          navigate(`/products/${product._id.productId}`);
                         }}
                       >
                         Dettagli
@@ -568,7 +568,7 @@ const SupplierDetail = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <ListItemText
-                      primary={product._id}
+                      primary={product._id.description}
                       secondary={
                         <Typography variant="body2" color="textSecondary" component="span">
                           Spesa totale: €{product.totalSpent?.toLocaleString()} • 

@@ -1,8 +1,12 @@
 import Alert from '../models/Alert.js';
 import Product from '../models/Product.js';
+import User from '../models/User.js'; // ⭐ AGGIUNTO
 import mongoose from 'mongoose';
 
 // Crea un nuovo alert
+// Rimuovi l'import di User (non più necessario)
+// import User from '../models/User.js'; // ⭐ RIMUOVI QUESTA RIGA
+
 export const createAlert = async (req, res) => {
   try {
     const { tenantId } = req.user;
@@ -21,7 +25,7 @@ export const createAlert = async (req, res) => {
     // Verifica se esiste già un alert attivo per questo prodotto e utente
     const existingAlert = await Alert.findOne({
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id),
+      userId: req.user.uid, // ⭐ Usa direttamente Firebase UID
       productId: new mongoose.Types.ObjectId(productId),
       type,
       isActive: true
@@ -33,7 +37,7 @@ export const createAlert = async (req, res) => {
 
     const alertData = {
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id),
+      userId: req.user.uid, // ⭐ Usa direttamente Firebase UID
       productId: new mongoose.Types.ObjectId(productId),
       type,
       checkFrequency: checkFrequency || 'daily',
@@ -52,7 +56,11 @@ export const createAlert = async (req, res) => {
     await alert.save();
 
     // Popola i dati per la risposta
-    await alert.populate(['product', 'user']);
+    // Nella funzione createAlert, cambia da:
+    //await alert.populate(['product', 'user']);
+    
+    // A:
+    await alert.populate('product');
 
     res.status(201).json({
       message: 'Alert creato con successo',
@@ -68,12 +76,25 @@ export const createAlert = async (req, res) => {
 export const getUserAlerts = async (req, res) => {
   try {
     const { tenantId } = req.user;
-    const { page = 1, limit = 10, isActive, type } = req.query;
+    const { page = 1, limit = 10, isActive, type, productId } = req.query;
+
+    // ⭐ CORREZIONE: Trova l'utente nel database usando Firebase UID
+    const user = await User.findOne({ uid: req.user.uid });
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
 
     const filter = {
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id)
+      userId: req.user.uid // ⭐ Usa direttamente Firebase UID
     };
+
+    console.log('🔍 Alert filter:', {
+      tenantId: tenantId,
+      userId: req.user.uid, // ⭐ Usa Firebase UID invece di user._id
+      userObject: req.user
+    });
+    console.log('🔍 MongoDB filter:', filter);
 
     if (isActive !== undefined) {
       filter.isActive = isActive === 'true';
@@ -83,13 +104,23 @@ export const getUserAlerts = async (req, res) => {
       filter.type = type;
     }
 
+    if (productId) {
+      filter.productId = new mongoose.Types.ObjectId(productId);
+    }
+
+    const allTenantAlerts = await Alert.find({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+    console.log('🔍 All tenant alerts:', allTenantAlerts.length);
+    console.log('🔍 Alert userIds:', allTenantAlerts.map(a => ({ id: a._id, userId: a.userId })));
+
     const alerts = await Alert.find(filter)
-      .populate('product', 'description code category')
+      .populate('product', 'description code category _id') // ⭐ Aggiungi _id per la navigazione
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
     const total = await Alert.countDocuments(filter);
+
+    console.log('🔍 Found alerts:', alerts.length);
 
     res.json({
       alerts,
@@ -113,7 +144,7 @@ export const updateAlert = async (req, res) => {
     const alert = await Alert.findOne({
       _id: alertId,
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id)
+      userId: req.user.uid
     });
 
     if (!alert) {
@@ -121,7 +152,7 @@ export const updateAlert = async (req, res) => {
     }
 
     // Aggiorna i campi permessi
-    const allowedUpdates = ['thresholdPrice', 'variationThreshold', 'isActive', 'checkFrequency', 'notificationMethod', 'notes'];
+    const allowedUpdates = ['type', 'thresholdPrice', 'variationThreshold', 'isActive', 'checkFrequency', 'notificationMethod', 'notes'];
     allowedUpdates.forEach(field => {
       if (updates[field] !== undefined) {
         alert[field] = updates[field];
@@ -130,7 +161,7 @@ export const updateAlert = async (req, res) => {
 
     alert.updatedAt = new Date();
     await alert.save();
-    await alert.populate(['product', 'user']);
+    await alert.populate('product'); // ⭐ Solo populate del prodotto
 
     res.json({
       message: 'Alert aggiornato con successo',
@@ -138,29 +169,6 @@ export const updateAlert = async (req, res) => {
     });
   } catch (error) {
     console.error('Errore nell\'aggiornamento dell\'alert:', error);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-};
-
-// Elimina un alert
-export const deleteAlert = async (req, res) => {
-  try {
-    const { tenantId } = req.user;
-    const { alertId } = req.params;
-
-    const alert = await Alert.findOneAndDelete({
-      _id: alertId,
-      tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id)
-    });
-
-    if (!alert) {
-      return res.status(404).json({ error: 'Alert non trovato' });
-    }
-
-    res.json({ message: 'Alert eliminato con successo' });
-  } catch (error) {
-    console.error('Errore nell\'eliminazione dell\'alert:', error);
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -174,7 +182,7 @@ export const toggleAlert = async (req, res) => {
     const alert = await Alert.findOne({
       _id: alertId,
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id)
+      userId: req.user.uid
     });
 
     if (!alert) {
@@ -184,10 +192,10 @@ export const toggleAlert = async (req, res) => {
     alert.isActive = !alert.isActive;
     alert.updatedAt = new Date();
     await alert.save();
-    await alert.populate(['product', 'user']);
+    await alert.populate('product'); // ⭐ Solo populate del prodotto
 
-    res.json({
-      message: `Alert ${alert.isActive ? 'attivato' : 'disattivato'} con successo`,
+    res.status(201).json({
+      message: 'Alert creato con successo',
       alert
     });
   } catch (error) {
@@ -196,9 +204,39 @@ export const toggleAlert = async (req, res) => {
   }
 };
 
-// Testa un alert (verifica se dovrebbe scattare)
+// Elimina un alert
+export const deleteAlert = async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    const { alertId } = req.params;
+
+    const alert = await Alert.findOneAndDelete({
+      _id: alertId,
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+      userId: req.user.uid // ⭐ Usa direttamente Firebase UID
+    });
+
+    if (!alert) {
+      return res.status(404).json({ error: 'Alert non trovato' });
+    }
+
+    res.json({ message: 'Alert eliminato con successo' });
+  } catch (error) {
+    console.error('Errore nell\'eliminazione dell\'alert:', error);
+    res.status(500).json({ error: 'Errore interno del server' });
+  }
+};
+
+// Testa un alert
 export const testAlert = async (req, res) => {
   try {
+    console.log('🧪 testAlert - Input:', {
+      alertId: req.params.alertId,
+      tenantId: req.user.tenantId,
+      userId: req.user.uid,
+      body: req.body
+    });
+    
     const { tenantId } = req.user;
     const { alertId } = req.params;
     const { testPrice, supplierId } = req.body;
@@ -206,7 +244,7 @@ export const testAlert = async (req, res) => {
     const alert = await Alert.findOne({
       _id: alertId,
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: new mongoose.Types.ObjectId(req.user._id)
+      userId: req.user.uid // ⭐ Usa direttamente Firebase UID
     }).populate('product');
 
     if (!alert) {

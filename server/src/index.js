@@ -8,11 +8,12 @@ import authRoutes from './routes/authRoutes.js';
 import tenantRoutes from './routes/tenantRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
-import productRoutes from './routes/productRoutes.js'; // AGGIUNTA: Import delle rotte principali dei prodotti
+import productRoutes from './routes/productRoutes.js';
 import productImportRoutes from './routes/productImportRoutes.js';
 import productDuplicateRoutes from './routes/productDuplicateRoutes.js';
 import productMatchingRoutes from './routes/productMatching.js';
 import supplierRoutes from './routes/supplierRoutes.js';
+import alertRoutes from './routes/alertRoutes.js'; // AGGIUNTO
 
 dotenv.config();
 
@@ -114,3 +115,5 @@ app.use((err, req, res, next) => {
   });
 });
 app.use('/api/invoices', invoiceRoutes);
+// Dopo le altre route, aggiungi:
+app.use('/api/alerts', alertRoutes); // AGGIUNTO

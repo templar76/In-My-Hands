@@ -1,24 +1,19 @@
 import mongoose from 'mongoose';
 
 const AlertSchema = new mongoose.Schema({
-  // Identificazione
-  tenantId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Tenant', 
-    required: true,
-    index: true 
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true
   },
-  userId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true,
-    index: true 
+  userId: {
+    type: String, // ⭐ CAMBIATO da ObjectId a String per Firebase UID
+    required: true
   },
-  productId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Product', 
-    required: true,
-    index: true 
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true
   },
   
   // Configurazione Alert
@@ -96,7 +91,7 @@ AlertSchema.virtual('product', {
 AlertSchema.virtual('user', {
   ref: 'User',
   localField: 'userId',
-  foreignField: '_id',
+  foreignField: 'uid', // ⭐ CAMBIATO da '_id' a 'uid'
   justOne: true
 });
 
@@ -105,7 +100,8 @@ AlertSchema.methods.calculateAveragePrice = async function() {
   const Product = mongoose.model('Product');
   const product = await Product.findById(this.productId);
   
-  if (!product || !product.pricesBySupplier.length) {
+  // ⭐ CORREZIONE: Controlla se pricesBySupplier esiste ed è un array
+  if (!product || !product.pricesBySupplier || !Array.isArray(product.pricesBySupplier) || product.pricesBySupplier.length === 0) {
     return null;
   }
   

@@ -643,13 +643,60 @@ const Alerts = () => {
                   {alerts.map((alert) => (
                     <TableRow key={alert._id}>
                       <TableCell>
-                        <Typography variant="subtitle2">
-                          {alert.productId?.description || 'Prodotto non trovato'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {alert.productId?.codeInternal}
-                        </Typography>
-                      </TableCell>
+                          {alert.product ? (
+                        <Box
+                          onClick={() => handleProductClick(alert.product._id)}
+                          sx={{
+        cursor: 'pointer',
+        padding: '8px 4px',
+        borderRadius: '4px',
+        '&:hover': {
+          backgroundColor: 'action.hover'
+        }
+      }}
+    >
+      <Typography 
+        variant="subtitle2"
+        sx={{
+          color: 'primary.main',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          lineHeight: 1.2,
+          '&:hover': {
+            textDecoration: 'underline'
+          }
+        }}
+      >
+        {alert.product.codeInternal || 'N/A'}
+      </Typography>
+      <Typography 
+        variant="body2" 
+        sx={{
+          color: 'text.secondary',
+          fontSize: '0.75rem',
+          lineHeight: 1.1,
+          mt: 0.5,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}
+      >
+        {alert.product.descriptionStd || 'Descrizione non disponibile'}
+      </Typography>
+    </Box>
+  ) : (
+    <Box>
+      <Typography variant="subtitle2" color="error" sx={{ fontSize: '0.875rem' }}>
+        Codice non trovato
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
+        Prodotto non disponibile
+      </Typography>
+    </Box>
+  )}
+</TableCell>
                       
                       <TableCell>
                         <Chip 

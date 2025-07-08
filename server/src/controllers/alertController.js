@@ -113,7 +113,11 @@ export const getUserAlerts = async (req, res) => {
     console.log('🔍 Alert userIds:', allTenantAlerts.map(a => ({ id: a._id, userId: a.userId })));
 
     const alerts = await Alert.find(filter)
+      // Nella funzione getUserAlerts, modifica la riga del populate da:
       .populate('product', 'description code category _id') // ⭐ Aggiungi _id per la navigazione
+      
+      // A:
+      .populate('product', 'codeInternal descriptionStd description category _id') // ⭐ Aggiungi codeInternal e descriptionStd
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -161,7 +165,11 @@ export const updateAlert = async (req, res) => {
 
     alert.updatedAt = new Date();
     await alert.save();
+    // Nella funzione updateAlert, modifica:
     await alert.populate('product'); // ⭐ Solo populate del prodotto
+    
+    // A:
+    await alert.populate('product', 'codeInternal descriptionStd description category _id');
 
     res.json({
       message: 'Alert aggiornato con successo',
@@ -192,7 +200,11 @@ export const toggleAlert = async (req, res) => {
     alert.isActive = !alert.isActive;
     alert.updatedAt = new Date();
     await alert.save();
+    // Nella funzione toggleAlert, modifica:
     await alert.populate('product'); // ⭐ Solo populate del prodotto
+    
+    // A:
+    await alert.populate('product', 'codeInternal descriptionStd description category _id');
 
     res.status(201).json({
       message: 'Alert creato con successo',

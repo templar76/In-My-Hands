@@ -287,6 +287,7 @@ const Invitations = () => {
     }
   };
 
+  // Nella funzione handleSubmit, sostituisci la gestione della risposta:
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!tenantId) {
@@ -326,65 +327,62 @@ const Invitations = () => {
         },
         body: JSON.stringify(payload)
       });
+      
       const data = await res.json();
+      
       if (!res.ok) {
         console.error('Invitations.jsx: Error response:', data);
         throw new Error(data.error || 'Errore durante l\'invio dell\'invito');
       }
 
-      // Estrai il primo risultato dall'array di risultati
+      // ✅ NUOVA GESTIONE: Controlla se l'email è stata inviata correttamente
       const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
       
+      // Controlla se ci sono stati errori nell'invio email
+      if (result.emailSent === false && result.error) {
+        setStatus('failed');
+        setMessage({
+          type: 'error',
+          text: `Errore nell'invio dell'invito: ${result.error}`
+        });
+        return;
+      }
+      
+      // Se l'email non è stata inviata ma non c'è un errore specifico
+      if (result.emailSent === false) {
+        setStatus('succeeded');
+        setMessage({
+          type: 'warning',
+          text: 'Invito creato ma non è stato possibile inviare l\'email. Utilizza il link o QR code per condividere l\'invito.'
+        });
+      } else {
+        // Email inviata con successo
+        setStatus('succeeded');
+        setMessage({
+          type: 'success',
+          text: mode === 'email' 
+            ? 'Invito inviato via email con successo!' 
+            : 'Invito generato con successo!'
+        });
+      }
+      
+      // Estrai il token per generare link e QR code
       if (result.inviteUrl) {
-        // Estrai il token dall'URL di invito
         const urlParams = new URLSearchParams(new URL(result.inviteUrl).search);
         const token = urlParams.get('token');
         if (token) {
           setInviteToken(token);
-          setStatus('succeeded');
-          
-          if (!result.emailSent) {
-            setMessage({
-              type: 'warning',
-              text: 'Invito generato con successo, ma non è stato possibile inviare l\'email. Puoi utilizzare il link o il QR code.'
-            });
-          } else {
-            setMessage({
-              type: 'success',
-              text: mode === 'email' 
-                ? 'Invito inviato via email con successo! È disponibile anche come link e QR code.'
-                : 'Invito generato con successo!'
-            });
-          }
-          
-          setEmail('');
-          setRole('operator');
-          return;
         }
+      } else if (result.token) {
+        setInviteToken(result.token);
       }
       
-      console.log('Invitations.jsx: Invite token received:', data.token);
-      setInviteToken(data.token); 
-
-      // Reset stati dopo il successo
-      setEmailExists(false);
-      setCheckingEmail(false);
-      setStatus('succeeded');
-      
-      if (mode === 'email') {
-        setMessage({ 
-          type: 'success', 
-          text: 'Invito inviato correttamente via email! È stato anche generato un link e un QR code come backup.' 
-        });
-      } else {
-        setMessage({ 
-          type: 'success', 
-          text: 'Invito generato con successo! Puoi trovare il link o il QR code qui sotto.' 
-        });
-      }
-      
+      // Reset form
       setEmail('');
       setRole('operator');
+      setEmailExists(false);
+      setCheckingEmail(false);
+      
     } catch (err) {
       setStatus('failed');
       setMessage({ type: 'error', text: err.message });

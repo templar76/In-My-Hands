@@ -7,12 +7,12 @@ import {
   toggleAlert,
   testAlert
 } from '../controllers/alertController.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Tutte le route richiedono autenticazione
-router.use(authenticateToken);
+router.use(verifyFirebaseToken);
 
 // CRUD Operations
 router.post('/', createAlert);                    // POST /api/alerts

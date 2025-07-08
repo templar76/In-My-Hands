@@ -51,6 +51,7 @@ export const checkExistingUser = async (req, res) => {
 // Implementazione completa per creazione utenti nel tenant
 // Rimozione codice residuo fuori posto
 // Funzione createTenantUser correttamente chiusa
+// Nella funzione createTenantUser, dopo aver processato tutti i risultati:
 export const createTenantUser = async (req, res) => {
   const { tenantId } = req.params;
   console.log(`[createTenantUser] Received request for tenantId: ${tenantId}`);
@@ -109,6 +110,25 @@ export const createTenantUser = async (req, res) => {
       }
     }));
 
+    // ✅ NUOVO: Controlla se ci sono stati errori nell'invio email
+    const hasEmailErrors = results.some(result => result.emailSent === false);
+    const allEmailsFailed = results.every(result => result.emailSent === false);
+    
+    if (allEmailsFailed) {
+      // Se tutte le email sono fallite, restituisci un errore
+      return res.status(500).json({
+        error: 'Impossibile inviare le email di invito. Verificare la configurazione SMTP.',
+        results
+      });
+    } else if (hasEmailErrors) {
+      // Se alcune email sono fallite, restituisci un warning con status 207 (Multi-Status)
+      return res.status(207).json({
+        message: 'Alcuni inviti sono stati creati ma non è stato possibile inviare tutte le email.',
+        results
+      });
+    }
+    
+    // Tutti gli inviti sono stati inviati con successo
     return res.status(201).json(results);
   } catch (err) {
     console.error('createTenantUser error:', err);

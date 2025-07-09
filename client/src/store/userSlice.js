@@ -222,7 +222,7 @@ const userSlice = createSlice({
           );
         } else {
           // Logga un avviso se il payload non è come previsto
-          console.warn('updateUserRole.fulfilled: il payload non contiene un oggetto utente valido o uid:', action.payload);
+          ClientLogger.warn('updateUserRole.fulfilled: il payload non contiene un oggetto utente valido o uid:', { payload: action.payload });
           // Potresti voler impostare uno stato di errore qui se il payload è inaspettato
           // state.error = 'Payload inatteso dall\'aggiornamento del ruolo utente.';
         }

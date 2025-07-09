@@ -47,6 +47,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getApiUrl } from '../utils/apiConfig';
+import  ClientLogger  from '../utils/ClientLogger';
 
 ChartJS.register(
   CategoryScale,
@@ -172,7 +173,12 @@ function Products() {
       const data = await response.json();
       setStats(data);
     } catch (err) {
-      console.error('Error fetching stats:', err);
+      ClientLogger.error('Error fetching product stats', {
+        error: err.message,
+        userId: user?.uid,
+        component: 'Products',
+        action: 'fetchStats'
+      });
     }
   }, [user]);
 

@@ -30,6 +30,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { auth } from '../firebase';
 import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 const API_URL = getApiUrl();
 
@@ -40,7 +41,6 @@ const Settings = ({ mode, setMode }) => {
   const { role } = useSelector(state => state.auth);
   const isAdmin = role === 'admin';
   
-  console.log('Settings - Debug: role:', role, 'isAdmin:', isAdmin);
 
   // Product Matching Configuration State
   const [productMatchingConfig, setProductMatchingConfig] = useState(null);
@@ -53,42 +53,32 @@ const Settings = ({ mode, setMode }) => {
 
   // Fetch Product Matching Configuration
   const fetchProductMatchingConfig = useCallback(async () => {
-  console.log('fetchProductMatchingConfig called - isAdmin:', isAdmin);
   if (!isAdmin) {
-    console.log('fetchProductMatchingConfig - Not admin, returning');
     return;
   }
   
   try {
     setLoading(true);
-    console.log('fetchProductMatchingConfig - Starting API call');
     const user = auth.currentUser;
     if (!user) throw new Error('User not authenticated');
     
     const token = await user.getIdToken();
-    console.log('fetchProductMatchingConfig - Making request to:', `${API_URL}/api/product-matching/config`);
     const response = await axios.get(`${API_URL}/api/product-matching/config`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     
-    console.log('fetchProductMatchingConfig - Response received:', response.data);
-    console.log('fetchProductMatchingConfig - Config structure:', Object.keys(response.data.config || {}));
     setProductMatchingConfig(response.data);
     setOriginalConfig(JSON.parse(JSON.stringify(response.data)));
     setError(null);
   } catch (err) {
-    console.log('fetchProductMatchingConfig - Error occurred:', err);
     setError('Errore nel caricamento della configurazione Product Matching');
-    console.error('Error fetching product matching config:', err);
   } finally {
     setLoading(false);
-    console.log('fetchProductMatchingConfig - Finished');
   }
 }, [isAdmin]);
 
   // Save Product Matching Configuration
   const saveProductMatchingConfig = async () => {
-    console.log('saveProductMatchingConfig - Starting with config:', productMatchingConfig);
     try {
       if (!productMatchingConfig || !productMatchingConfig.config) {
         throw new Error('Configurazione non valida');
@@ -117,7 +107,6 @@ const Settings = ({ mode, setMode }) => {
           phaseNumber = phaseKey;
         }
         
-        console.log(`saveProductMatchingConfig - Updating phase ${phaseKey} (${phaseNumber}) with data:`, config.config[phaseKey]);
         
         try {
           const response = await axios.put(
@@ -131,21 +120,24 @@ const Settings = ({ mode, setMode }) => {
             }
           );
           
-          console.log(`saveProductMatchingConfig - Phase ${phaseNumber} response:`, response.data);
           responses.push(response);
         } catch (error) {
-          console.error(`ERROR saving phase ${phaseNumber}:`, {
+          ClientLogger.error('Error saving product matching configuration phase', {
+            error: error.message,
             status: error.response?.status,
             statusText: error.response?.statusText,
             data: error.response?.data,
             url: error.config?.url,
-            sentData: config.config[phaseKey]
+            sentData: config.config[phaseKey],
+            phaseKey,
+            phaseNumber,
+            component: 'Settings',
+            action: 'saveProductMatchingConfig'
           });
           throw error;
         }
       }
   
-      console.log('saveProductMatchingConfig - All phases updated successfully:', responses);
       
       await fetchProductMatchingConfig();
       
@@ -154,12 +146,14 @@ const Settings = ({ mode, setMode }) => {
       setPendingChanges(null);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      console.error('Error saving product matching config:', err);
-      console.error('Error details:', {
-        message: err.message,
+      ClientLogger.error('General error saving product matching configuration', {
+        error: err.message,
         response: err.response?.data,
         status: err.response?.status,
-        url: err.config?.url
+        url: err.config?.url,
+        userId: auth.currentUser?.uid,
+        component: 'Settings',
+        action: 'saveProductMatchingConfig'
       });
       
       let errorMessage = `Errore nel salvataggio della configurazione: ${err.response?.data?.message || err.message}`;
@@ -194,7 +188,6 @@ const Settings = ({ mode, setMode }) => {
   };
 
   useEffect(() => {
-    console.log('useEffect triggered - isAdmin:', isAdmin);
     fetchProductMatchingConfig();
   }, [isAdmin, fetchProductMatchingConfig]); // Aggiunta fetchProductMatchingConfig
 
@@ -251,7 +244,6 @@ const Settings = ({ mode, setMode }) => {
 
   const handleConfirmSave = async () => {
     if (pendingChanges) {
-      console.log('handleConfirmSave - Confirming save with pendingChanges:', pendingChanges);
       await saveProductMatchingConfig();
       setConfirmDialog(false);
       setPendingChanges(null);
@@ -318,7 +310,6 @@ const Settings = ({ mode, setMode }) => {
     };
 
     const phaseInfo = phaseDescriptions[phaseKey];
-    console.log(`renderPhaseSettings - Rendering phase: ${phaseKey}, config:`, phaseConfig);
 
     return (
       <Accordion key={phaseKey} sx={{ mb: 1 }}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ClientLogger from '../utils/ClientLogger';
 import {
   Box,
   Typography,
@@ -241,28 +242,38 @@ const SupplierDetail = () => {
   const handleSaveSupplier = async () => {
     try {
       setSaving(true);
-      console.log('Frontend - SupplierId:', supplierId);
-      console.log('Frontend - Dati da inviare:', editedSupplier);
+      ClientLogger.debug('Avvio salvataggio fornitore', {
+        supplierId,
+        supplierData: editedSupplier,
+        component: 'SupplierDetail',
+        action: 'save_supplier'
+      });
       
       const user = auth.currentUser;
       if (!user) {
         setSnackbar({ open: true, message: 'Utente non autenticato', severity: 'error' });
         return;
       }
-
+  
       const token = await user.getIdToken();
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-
+  
       const response = await axios.put(
         `${getApiUrl()}/api/suppliers/${supplierId}`,
         editedSupplier,
         { headers }
       );
       
-      console.log('Frontend - Risposta ricevuta:', response.data);
+      ClientLogger.info('Fornitore salvato con successo', {
+        supplierId,
+        responseData: response.data,
+        component: 'SupplierDetail',
+        action: 'save_supplier_success'
+      });
+      
       if (response.data.success) {
         // Aggiorna i dati locali
         setSupplierData(prev => ({
@@ -277,7 +288,13 @@ const SupplierDetail = () => {
         });
       }
     } catch (error) {
-      console.error('Errore nel salvataggio:', error);
+      ClientLogger.error('Errore nel salvataggio fornitore', {
+        supplierId,
+        error: error.message,
+        errorResponse: error.response?.data,
+        component: 'SupplierDetail',
+        action: 'save_supplier_error'
+      });
       setSnackbar({ 
         open: true, 
         message: error.response?.data?.error || 'Errore nel salvataggio', 

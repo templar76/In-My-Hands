@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import logger from '../utils/logger.js';
 
 // Configurazione del trasportatore email per Alert System
 const createAlertTransporter = () => {
@@ -75,9 +76,21 @@ export const sendAlertEmail = async (alertData) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`📧 Email di alert inviata a ${to}`);
+    logger.info('Email di alert inviata con successo', {
+      recipient: to,
+      alertType,
+      productName,
+      productId
+    });
   } catch (error) {
-    console.error('❌ Errore nell\'invio dell\'email di alert:', error);
+    logger.error('Errore nell\'invio dell\'email di alert', {
+      error: error.message,
+      stack: error.stack,
+      recipient: to,
+      alertType,
+      productName,
+      productId
+    });
     throw error;
   }
 };

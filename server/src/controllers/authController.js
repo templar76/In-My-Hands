@@ -1,11 +1,12 @@
 import Tenant from '../models/Tenant.js';
 import User from '../models/User.js';
-import TenantRegistrationToken from '../models/TenantRegistrationToken.js'; // Importa il nuovo modello
+import TenantRegistrationToken from '../models/TenantRegistrationToken.js';
 import { auth } from '../firebaseAdmin.js';
 import nodemailer from 'nodemailer';
 import { validationResult } from 'express-validator';
 import Subscription from '../models/Subscription.js';
-import crypto from 'crypto'; // Per generare il token
+import crypto from 'crypto';
+import logger from '../utils/logger.js';
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000'; // Assicurati che CLIENT_URL sia configurato nel .env
 
@@ -71,7 +72,7 @@ export const register = async (req, res) => {
     return res.status(200).json({ message: 'Email di conferma inviata. Controlla la tua casella di posta per completare la registrazione.' });
 
   } catch (err) {
-    console.error('Error in initiateTenantRegistration:', err);
+    logger.error('Error in initiateTenantRegistration', { error: err.message, stack: err.stack });
     return res.status(500).json({ error: 'Errore interno del server durante l\'avvio della registrazione.' });
   }
 };
@@ -151,13 +152,13 @@ export const completeTenantRegistration = async (req, res) => {
         password: password,
         displayName: displayName
       });
-      console.log(`New Firebase user created for admin. UID: ${userRecord.uid}`);
+      logger.info('New Firebase user created for admin', { uid: userRecord.uid });
     } catch (firebaseError) {
       if (firebaseError.code === 'auth/email-already-exists') {
-        console.error(`Firebase user with email ${adminEmail} already exists, though TenantRegistrationToken was present.`);
+        logger.error('Firebase user already exists', { email: adminEmail, error: 'TenantRegistrationToken was present but Firebase user exists' });
         return res.status(409).json({ error: 'Un utente Firebase con questa email esiste già. Contatta il supporto.' });
       }
-      console.error('Error creating Firebase user:', firebaseError);
+      logger.error('Error creating Firebase user', { error: firebaseError.message, stack: firebaseError.stack });
       throw firebaseError;
     }
 
@@ -176,9 +177,9 @@ export const completeTenantRegistration = async (req, res) => {
         role: 'admin'
       };
       newUser = await User.create(userData);
-      console.log(`New user created in MongoDB. UID: ${newUser.uid}`);
+      logger.info('New user created in MongoDB', { uid: newUser.uid });
     } catch (mongoError) {
-      console.error('Error saving user in MongoDB:', mongoError);
+      logger.error('Error saving user in MongoDB', { error: mongoError.message, stack: mongoError.stack });
       throw mongoError;
     }
 
@@ -190,64 +191,53 @@ export const completeTenantRegistration = async (req, res) => {
       adminUid: userRecord.uid
     });
   } catch (err) {
-    console.error('Error in completeTenantRegistration:', err);
+    logger.error('Error in completeTenantRegistration', { error: err.message, stack: err.stack });
     return res.status(500).json({ error: 'Errore interno del server durante il completamento della registrazione.' });
   }
 };
 
-
-
-
 export const getMe = async (req, res) => {
-  console.log('authController - getMe: START. req.user:', JSON.stringify(req.user, null, 2));
+  logger.debug('authController - getMe: START', { user: req.user });
   try {
-    // req.user è impostato dal middleware verifyFirebaseToken
-    const user = await User.findOne({ uid: req.user.uid }).lean(); // .lean() per un oggetto JS semplice
-    console.log('authController - getMe: User found in DB:', JSON.stringify(user, null, 2));
+    const user = await User.findOne({ uid: req.user.uid }).lean();
+    logger.debug('authController - getMe: User found in DB', { user });
     if (!user) {
-      console.error('authController - getMe: User not found in local DB for UID:', req.user.uid);
+      logger.error('authController - getMe: User not found in local DB', { uid: req.user.uid });
       return res.status(404).json({ error: 'Utente non trovato nel database locale.' });
     }
 
     let companyName = null;
-    let tenantDetailsForPayload = null; // Variabile per contenere l'oggetto tenant completo o solo companyName
+    let tenantDetailsForPayload = null;
     if (user.tenantId) {
-      console.log(`authController - getMe: User has tenantId: ${user.tenantId}. Fetching tenant details.`);
-      const tenant = await Tenant.findById(user.tenantId).select('companyName companyType').lean(); // Seleziona i campi necessari
+      logger.debug('authController - getMe: User has tenantId, fetching tenant details', { tenantId: user.tenantId });
+      const tenant = await Tenant.findById(user.tenantId).select('companyName companyType').lean();
       if (tenant) {
-        console.log('authController - getMe: Tenant found:', JSON.stringify(tenant, null, 2));
+        logger.debug('authController - getMe: Tenant found', { tenant });
         companyName = tenant.companyName;
-        tenantDetailsForPayload = tenant; // Invia l'oggetto tenant con companyName e companyType
+        tenantDetailsForPayload = tenant;
       } else {
-        console.log('authController - getMe: Tenant NOT found for tenantId:', user.tenantId);
+        logger.warn('authController - getMe: Tenant NOT found', { tenantId: user.tenantId });
       }
     } else {
-      console.log('authController - getMe: User does NOT have a tenantId.');
+      logger.debug('authController - getMe: User does NOT have a tenantId');
     }
 
-    // Restituisci i dati dell'utente, inclusi tenantId e role
-    // Questi dovrebbero provenire dal DB locale che è la fonte di verità dopo la registrazione/login iniziale
     const responsePayload = {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName,
-      tenantId: user.tenantId, // Assicurati che questo sia popolato correttamente
-      role: user.role, // Assicurati che questo sia popolato correttamente
-      // companyName: companyName, // companyName è ora dentro tenant
-      tenant: tenantDetailsForPayload, // Includi i dettagli del tenant (companyName, companyType)
-      // Aggiungi altri campi necessari, es. subscription details se memorizzati in User
+      tenantId: user.tenantId,
+      role: user.role,
+      tenant: tenantDetailsForPayload,
     };
-    console.log('authController - getMe: Sending responsePayload:', JSON.stringify(responsePayload, null, 2));
+    logger.debug('authController - getMe: Sending responsePayload', { responsePayload });
     return res.status(200).json(responsePayload);
   } catch (error) {
-    console.error('Errore in getMe:', error);
+    logger.error('Errore in getMe', { error: error.message, stack: error.stack });
     return res.status(500).json({ error: 'Errore nel recupero del profilo utente.' });
   }
 };
 
-
-
-// Funzione per aggiornare il profilo utente (es. displayName)
 export const changePassword = async (req, res) => {
   const { newPassword } = req.body;
   const uid = req.user.uid; // uid dall'utente autenticato tramite verifyFirebaseToken
@@ -260,28 +250,27 @@ export const changePassword = async (req, res) => {
     await auth.updateUser(uid, {
       password: newPassword,
     });
-    // Non è necessario aggiornare l'utente in MongoDB qui a meno che non si memorizzi l'hash della password,
-    // il che non è raccomandato quando si usa Firebase Auth.
     return res.status(200).json({ message: 'Password aggiornata con successo.' });
   } catch (error) {
-    console.error('Errore durante l\'aggiornamento della password in Firebase:', error);
-    // Mappa i codici di errore di Firebase a messaggi più user-friendly se necessario
+    logger.error('Errore durante aggiornamento password in Firebase', { error: error.message, uid });
     let errorMessage = 'Errore durante l\'aggiornamento della password.';
     if (error.code === 'auth/weak-password') {
       errorMessage = 'La password fornita è troppo debole.';
     }
-    // Altri codici di errore specifici di Firebase potrebbero essere gestiti qui
     return res.status(500).json({ message: errorMessage, error: error.message });
   }
 };
 
-export const updateUserProfile = async (req, res) =>{
-  const { uid } = req.params; // UID dalla rotta
-  const authenticatedUserUid = req.user.uid; // UID dal token
-  const { displayName } = req.body; // displayName dal client
+export const updateUserProfile = async (req, res) => {
+  const { uid } = req.params;
+  const authenticatedUserUid = req.user.uid;
+  const { displayName } = req.body;
 
-  console.log(`[updateUserProfile] Received request to update UID: ${uid}. Authenticated UID: ${authenticatedUserUid}`);
-  console.log(`[updateUserProfile] Received displayName from client: "${displayName}"`);
+  logger.debug('updateUserProfile request received', { 
+    targetUid: uid, 
+    authenticatedUid: authenticatedUserUid, 
+    displayName 
+  });
 
   // Verifica che l'utente stia modificando il proprio profilo
   if (uid !== authenticatedUserUid) {
@@ -289,30 +278,28 @@ export const updateUserProfile = async (req, res) =>{
   }
 
   const trimmedDisplayName = displayName.trim();
-  console.log(`[updateUserProfile] Trimmed displayName: "${trimmedDisplayName}"`);
-
-  // La validazione di displayName è già fatta nella rotta con express-validator.
-  // Se il middleware di validazione passa, trimmedDisplayName non dovrebbe essere vuoto.
+  logger.debug('updateUserProfile trimmed displayName', { trimmedDisplayName });
 
   try {
-    // Aggiorna in MongoDB
     const updatedUserFromDB = await User.findOneAndUpdate(
       { uid: authenticatedUserUid },
-      { $set: { displayName: trimmedDisplayName } }, // Usa trimmedDisplayName
+      { $set: { displayName: trimmedDisplayName } },
       { new: true, runValidators: true }
     ).lean();
 
     if (!updatedUserFromDB) {
-      console.error(`[updateUserProfile] User not found in DB for UID: ${authenticatedUserUid}`);
+      logger.error('updateUserProfile: User not found in DB', { uid: authenticatedUserUid });
       return res.status(404).json({ error: 'Utente non trovato nel database.' });
     }
-    console.log(`[updateUserProfile] User updated in DB. New displayName: "${updatedUserFromDB.displayName}"`);
-
-    // Aggiorna in Firebase Authentication
-    await auth.updateUser(authenticatedUserUid, {
-      displayName: trimmedDisplayName // Usa trimmedDisplayName
+    logger.info('updateUserProfile: User updated in DB', { 
+      uid: authenticatedUserUid, 
+      newDisplayName: updatedUserFromDB.displayName 
     });
-    console.log(`[updateUserProfile] User updated in Firebase Auth. UID: ${authenticatedUserUid}`);
+
+    await auth.updateUser(authenticatedUserUid, {
+      displayName: trimmedDisplayName
+    });
+    logger.info('updateUserProfile: User updated in Firebase Auth', { uid: authenticatedUserUid });
 
     // Prepara la risposta, includendo i dettagli del tenant per coerenza con getMe
     let tenantDetailsForPayload = null;
@@ -329,13 +316,25 @@ export const updateUserProfile = async (req, res) =>{
         displayName: updatedUserFromDB.displayName,
         tenantId: updatedUserFromDB.tenantId,
         role: updatedUserFromDB.role,
-        tenant: tenantDetailsForPayload // Includi l'oggetto tenant come in getMe
+        tenant: tenantDetailsForPayload
     };
 
-    console.log('[updateUserProfile] Sending response:', JSON.stringify({ user: responseUser }, null, 2));
+    logger.debug('updateUserProfile sending response', { 
+      uid: authenticatedUserUid,
+      responseUser: {
+        uid: responseUser.uid,
+        displayName: responseUser.displayName,
+        tenantId: responseUser.tenantId
+      }
+    });
     return res.status(200).json({ user: responseUser });
   } catch (error) {
-    console.error('[updateUserProfile] Error:', error);
+    logger.error('updateUserProfile error', {
+      uid: authenticatedUserUid,
+      error: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     if (error.code === 'auth/user-not-found') {
         return res.status(404).json({ error: 'Utente non trovato in Firebase Authentication.' });
     }
@@ -364,7 +363,7 @@ export const setAdminRole = async (req, res) => {
     await User.findOneAndUpdate({ uid: targetUid }, { role }, { new: true });
     return res.json({ uid: targetUid, role });
   } catch (err) {
-    console.error('setAdminRole error:', err);
+    logger.error('setAdminRole error', { error: err.message, stack: err.stack, targetUid });
     return res.status(500).json({ error: err.message });
   }
 };

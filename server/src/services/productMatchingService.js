@@ -1,5 +1,6 @@
 import Product from '../models/Product.js';
 import fuzzysort from 'fuzzysort';
+import logger from '../utils/logger.js';
 
 /**
  * Servizio per la gestione del matching dei prodotti
@@ -82,7 +83,13 @@ class ProductMatchingService {
         .slice(0, limit);
 
     } catch (error) {
-      console.error('Errore nella ricerca di prodotti simili:', error);
+      logger.error('Errore nella ricerca di prodotti simili', {
+        error: error.message,
+        stack: error.stack,
+        description,
+        tenantId,
+        options
+      });
       throw error;
     }
   }
@@ -225,7 +232,15 @@ class ProductMatchingService {
       await product.save();
       return product;
     } catch (error) {
-      console.error('Errore nell\'aggiunta di descrizione alternativa:', error);
+      logger.error('Errore nell\'aggiunta di descrizione alternativa', {
+        error: error.message,
+        stack: error.stack,
+        productId,
+        description,
+        tenantId,
+        source,
+        addedBy
+      });
       throw error;
     }
   }
@@ -259,7 +274,12 @@ class ProductMatchingService {
         }
       };
     } catch (error) {
-      console.error('Errore nel calcolo delle statistiche:', error);
+      logger.error('Errore nel calcolo delle statistiche', {
+        error: error.message,
+        stack: error.stack,
+        tenantId,
+        dateRange
+      });
       throw error;
     }
   }

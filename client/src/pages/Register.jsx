@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { signInWithGoogle } from '../store/authSlice'; // registerUser non è più usato qui direttamente
+import { signInWithGoogle } from '../store/authSlice';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Link } from '@mui/material';
 import Alert from '@mui/material/Alert';
-import { getApiUrl } from '../utils/apiConfig'; // Importa la funzione helper
+import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 const Register = () => {
   const dispatch = useDispatch();
@@ -36,24 +37,27 @@ const Register = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    setMessage(null); // Resetta messaggi precedenti
-    // Non inviamo più a registerUser di authSlice, ma direttamente all'API
+    setMessage(null);
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, { // Modifica questa linea
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: email, plan: 'free' }), // Invia email e piano
+        body: JSON.stringify({ email: email, plan: 'free' }),
       });
       const data = await response.json();
       if (!response.ok) {
-        throw data; // Lancia l'oggetto errore dall'API
+        throw data;
       }
       setMessage({ type: 'success', text: data.message || 'Email di conferma inviata. Controlla la tua casella di posta.' });
-      setEmail(''); // Pulisci il campo email dopo il successo
+      setEmail('');
     } catch (err) {
-      console.error('Registration initiation error:', err);
+      ClientLogger.error('Registration initiation error', {
+        error: err,
+        email: email,
+        context: 'Register.handleSubmit'
+      });
       const friendlyError = getFriendlyError(err);
       setMessage({ type: 'error', text: friendlyError });
     }

@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { auth } from '../firebase';
 import { getApiUrl } from '../utils/apiConfig';
 import { fetchTenantUsers, removeUserFromTenant, updateUserRole } from '../store/userSlice';
+import ClientLogger from '../utils/ClientLogger';
 
 // Import dei nuovi componenti
 import InvitationSection from '../components/UserManagement/InvitationSection';
@@ -45,7 +46,7 @@ const UserManagement = () => {
           }
         }
       } catch (err) {
-        console.error('Error fetching tenant ID:', err);
+        ClientLogger.error('Error fetching tenant ID', { error: err.message, stack: err.stack });
       }
     });
     return () => unsubscribe();
@@ -79,7 +80,11 @@ const UserManagement = () => {
           const data = await response.json();
           setSentInvitations(data.invitations || []);
         } catch (error) {
-          console.error('Errore recupero inviti inviati:', error);
+          ClientLogger.error('Errore recupero inviti inviati', { 
+            error: error.message, 
+            tenantId, 
+            stack: error.stack 
+          });
           setSentInvitationsInitialError({ 
             type: 'error', 
             text: `Errore nel caricamento degli inviti: ${error.message}` 
@@ -138,7 +143,12 @@ const UserManagement = () => {
         );
       }
     } catch (error) {
-      console.error(`Errore durante il reinvio dell'invito:`, error);
+      ClientLogger.error('Errore durante il reinvio dell\'invito', { 
+        error: error.message, 
+        invitationId, 
+        tenantId, 
+        stack: error.stack 
+      });
       setListOperationsMessage({ type: 'error', text: `Errore durante il reinvio dell'invito: ${error.message}` });
     }
   };
@@ -185,7 +195,12 @@ const UserManagement = () => {
       );
       setListOperationsMessage({ type: 'success', text: 'Invito eliminato con successo!' });
     } catch (error) {
-      console.error("Errore durante l'eliminazione dell'invito:", error);
+      ClientLogger.error('Errore durante l\'eliminazione dell\'invito', { 
+        error: error.message, 
+        invitationId, 
+        tenantId, 
+        stack: error.stack 
+      });
       setListOperationsMessage({ type: 'error', text: `Errore durante l'eliminazione dell'invito: ${error.message}` });
     }
   };
@@ -242,7 +257,11 @@ const UserManagement = () => {
             setSentInvitations(data.invitations || []);
           }
         } catch (error) {
-          console.error('Errore nel ricaricare gli inviti:', error);
+          ClientLogger.error('Errore nel ricaricare gli inviti', { 
+            error: error.message, 
+            tenantId, 
+            stack: error.stack 
+          });
         }
       };
       fetchSentInvitations();

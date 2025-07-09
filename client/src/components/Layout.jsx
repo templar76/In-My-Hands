@@ -33,6 +33,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { Receipt } from '@mui/icons-material';
+import { memo } from 'react';
 
 const drawerWidth = 240;
 
@@ -68,7 +69,8 @@ const menuPermissions = {
   operator: ['Dashboard', 'Prodotti', 'Alert'],
 };
 
-export default function Layout({ children }) {
+// Wrap heavy components
+const Layout = memo(({ children, mode, setMode }) => {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -269,4 +271,6 @@ export default function Layout({ children }) {
       </Box>
     </Box>
   );
-}
+});
+
+export default Layout;

@@ -5,6 +5,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import QRCode from 'react-qr-code';
 import { getApiUrl } from '../../utils/apiConfig';
 
+// Aggiungi import in cima al file
+import ClientLogger from '../../utils/ClientLogger';
+
 const API_URL = getApiUrl();
 
 const InvitationSection = ({ tenantId, onInvitationSent }) => {
@@ -44,7 +47,7 @@ const InvitationSection = ({ tenantId, onInvitationSent }) => {
       const data = await res.json();
       setEmailExists(data.exists);
     } catch (err) {
-      console.error('checkEmail error:', err);
+      ClientLogger.error('checkEmail error:', { error: err.message, email: addr, tenantId });
       setEmailExists(false);
     } finally {
       setCheckingEmail(false);

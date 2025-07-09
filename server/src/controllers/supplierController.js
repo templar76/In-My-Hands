@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Supplier from '../models/Supplier.js';
 import Invoice from '../models/Invoice.js';
+import logger from '../utils/logger.js';
 
 /**
  * GET /api/suppliers/analytics
@@ -112,7 +113,7 @@ export const getSuppliersAnalytics = async (req, res) => {
 
     res.json(analytics);
   } catch (error) {
-    console.error('Error in getSuppliersAnalytics:', error);
+    logger.error('Error in getSuppliersAnalytics', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore nel recupero delle statistiche fornitori' });
   }
 };
@@ -226,7 +227,7 @@ export const getSpendingAnalysis = async (req, res) => {
       timeline: timeline      // dati aggregati per il grafico
     });
   } catch (error) {
-    console.error('Error in getSpendingAnalysis:', error);
+    logger.error('Error in getSpendingAnalysis', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore nell\'analisi della spesa' });
   }
 };
@@ -371,7 +372,7 @@ export const searchSuppliers = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error in searchSuppliers:', error);
+    logger.error('Error in searchSuppliers', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore nella ricerca fornitori' });
   }
 };
@@ -503,7 +504,7 @@ export const getSupplierDetails = async (req, res) => {
 
     res.json(supplierDetails);
   } catch (error) {
-    console.error('Error in getSupplierDetails:', error);
+    logger.error('Error in getSupplierDetails', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId, supplierId: req.params?.id });
     res.status(500).json({ error: 'Errore nel recupero dei dettagli fornitore' });
   }
 };
@@ -531,7 +532,7 @@ export const getContractualPowerAnalysis = async (req, res) => {
     // Questa funzione potrebbe essere chiamata internamente
     
   } catch (error) {
-    console.error('Error in getContractualPowerAnalysis:', error);
+    logger.error('Error in getContractualPowerAnalysis', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore nell\'analisi del potere contrattuale' });
   }
 };
@@ -577,7 +578,7 @@ export const getAllSuppliers = async (req, res) => {
 
     res.json(suppliers);
   } catch (error) {
-    console.error('Errore nel recupero fornitori:', error);
+    logger.error('Errore nel recupero fornitori', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -592,9 +593,11 @@ export const updateSupplier = async (req, res) => {
     const { tenantId } = req.user;
     const updateData = req.body;
 
-    console.log('UpdateSupplier - ID ricevuto:', id);
-    console.log('UpdateSupplier - TenantId:', tenantId);
-    console.log('UpdateSupplier - Dati da aggiornare:', updateData);
+    logger.debug('UpdateSupplier request', { 
+      supplierId: id, 
+      tenantId, 
+      updateData 
+    });
 
     if (!tenantId) {
       return res.status(400).json({ error: 'TenantId mancante' });
@@ -602,12 +605,12 @@ export const updateSupplier = async (req, res) => {
 
     // Validazione ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log('UpdateSupplier - ID non valido:', id);
+      logger.warn('UpdateSupplier - Invalid supplier ID', { supplierId: id });
       return res.status(400).json({ error: 'ID fornitore non valido' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(tenantId)) {
-      console.log('UpdateSupplier - TenantId non valido:', tenantId);
+      logger.warn('UpdateSupplier - Invalid tenantId', { tenantId });
       return res.status(400).json({ error: 'TenantId non valido' });
     }
 
@@ -646,10 +649,16 @@ export const updateSupplier = async (req, res) => {
       tenantId: new mongoose.Types.ObjectId(tenantId)
     });
 
-    console.log('UpdateSupplier - Fornitore esistente trovato:', !!existingSupplier);
+    logger.debug('UpdateSupplier - Existing supplier check', { 
+      supplierId: id, 
+      found: !!existingSupplier 
+    });
     
     if (!existingSupplier) {
-      console.log('UpdateSupplier - Fornitore non trovato con ID:', id, 'e TenantId:', tenantId);
+      logger.warn('UpdateSupplier - Supplier not found', { 
+        supplierId: id, 
+        tenantId 
+      });
       return res.status(404).json({ error: 'Fornitore non trovato' });
     }
 
@@ -660,7 +669,10 @@ export const updateSupplier = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    console.log('UpdateSupplier - Fornitore aggiornato:', !!supplier);
+    logger.info('UpdateSupplier - Supplier updated successfully', { 
+      supplierId: id, 
+      tenantId 
+    });
 
     res.json({
       success: true,
@@ -669,7 +681,12 @@ export const updateSupplier = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Errore nell\'aggiornamento fornitore:', error);
+    logger.error('Errore nell\'aggiornamento fornitore', { 
+      error: error.message, 
+      stack: error.stack, 
+      supplierId: req.params?.id, 
+      tenantId: req.user?.tenantId 
+    });
     if (error.name === 'ValidationError') {
       return res.status(400).json({ error: 'Dati non validi: ' + error.message });
     }

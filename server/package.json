@@ -27,6 +27,7 @@
     "nodemailer": "^7.0.2",
     "pdf-parse": "^1.1.1",
     "uuid": "^11.1.0",
+    "winston": "^3.17.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

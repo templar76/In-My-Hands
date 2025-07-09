@@ -11,6 +11,7 @@ import { useDropzone } from 'react-dropzone';
 import { getAuth } from 'firebase/auth';
 import axios from 'axios';
 import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -82,7 +83,18 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         }
       );
 
-      console.log('File uploaded:', res.data);
+      ClientLogger.info('Invoice file uploaded successfully', {
+        component: 'InvoiceUploadComponent',
+        action: 'handleUpload',
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        responseData: {
+          success: res.data.success,
+          invoiceId: res.data.invoiceId,
+          message: res.data.message
+        }
+      });
       setSuccess('Fattura caricata con successo');
       setFile(null);
       setProgress(0);
@@ -93,7 +105,16 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
       }, 1500);
       
     } catch (err) {
-      console.error(err);
+      ClientLogger.error('Error uploading invoice file', {
+        component: 'InvoiceUploadComponent',
+        action: 'handleUpload',
+        fileName: file?.name,
+        fileSize: file?.size,
+        fileType: file?.type,
+        error: err.message,
+        status: err.response?.status,
+        responseData: err.response?.data
+      });
       setError(
         err.response?.data?.error ||
         err.message ||

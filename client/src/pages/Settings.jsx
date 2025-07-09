@@ -30,6 +30,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { auth } from '../firebase';
 import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 const API_URL = getApiUrl();
 
@@ -121,12 +122,17 @@ const Settings = ({ mode, setMode }) => {
           
           responses.push(response);
         } catch (error) {
-          console.error('Errore nel salvataggio della configurazione:', {
+          ClientLogger.error('Error saving product matching configuration phase', {
+            error: error.message,
             status: error.response?.status,
             statusText: error.response?.statusText,
             data: error.response?.data,
             url: error.config?.url,
-            sentData: config.config[phaseKey]
+            sentData: config.config[phaseKey],
+            phaseKey,
+            phaseNumber,
+            component: 'Settings',
+            action: 'saveProductMatchingConfig'
           });
           throw error;
         }
@@ -140,11 +146,14 @@ const Settings = ({ mode, setMode }) => {
       setPendingChanges(null);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      console.error('Errore generale nel salvataggio:', {
-        message: err.message,
+      ClientLogger.error('General error saving product matching configuration', {
+        error: err.message,
         response: err.response?.data,
         status: err.response?.status,
-        url: err.config?.url
+        url: err.config?.url,
+        userId: auth.currentUser?.uid,
+        component: 'Settings',
+        action: 'saveProductMatchingConfig'
       });
       
       let errorMessage = `Errore nel salvataggio della configurazione: ${err.response?.data?.message || err.message}`;

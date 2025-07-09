@@ -10,6 +10,7 @@ import {
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { updateUserProfile } from './userSlice'; // Importa l'azione da userSlice
 import { getApiUrl } from '../utils/apiConfig'; // Importa la funzione helper
+import ClientLogger from '../utils/ClientLogger'; // Import mancante aggiunto
 
 // Async thunks
 export const registerUser = createAsyncThunk(
@@ -62,8 +63,7 @@ export const registerUser = createAsyncThunk(
         role: backendUser.role
       };
     } catch (error) {
-      console.error('registerUser ERROR CODE:', error.code); // Firebase error
-      console.error('registerUser ERROR MESSAGE:', error.message); // Firebase or backend error
+      ClientLogger.error('registerUser error:', { code: error.code, message: error.message });
       return rejectWithValue(error.message);
     }
   }
@@ -80,8 +80,7 @@ export const loginUser = createAsyncThunk(
         displayName: userCredential.user.displayName
       };
     } catch (error) {
-      console.error('loginUser ERROR CODE:', error.code);
-      console.error('loginUser ERROR MESSAGE:', error.message);
+      ClientLogger.error('loginUser error:', { code: error.code, message: error.message });
       return rejectWithValue(error.message);
     }
   }
@@ -129,7 +128,7 @@ export const fetchUserProfile = createAsyncThunk(
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.warn('fetchUserProfile: User not found or not authorized in backend (401). Clearing session.');
+          ClientLogger.warn('fetchUserProfile: User not found or not authorized in backend (401). Clearing session.');
           dispatch(clearUser()); 
           return rejectWithValue('User not found or not authorized in backend.');
         }
@@ -139,7 +138,7 @@ export const fetchUserProfile = createAsyncThunk(
       const userProfile = await response.json();
       return userProfile; 
     } catch (error) {
-      console.error('fetchUserProfile error:', error.message);
+      ClientLogger.error('fetchUserProfile error:', { message: error.message });
       dispatch(clearUser()); 
       return rejectWithValue(error.message);
     }
@@ -208,7 +207,7 @@ export const getFirebaseToken = createAsyncThunk(
       const token = await firebaseUser.getIdToken(true); // true forza l'aggiornamento del token se scaduto
       return token;
     } catch (error) {
-      console.error('getFirebaseToken error:', error.message);
+      ClientLogger.error('getFirebaseToken error:', { message: error.message });
       return rejectWithValue(error.message);
     }
   }
@@ -335,7 +334,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
-        console.log('authSlice - fetchUserProfile.fulfilled PAYLOAD:', JSON.stringify(action.payload, null, 2));
+        ClientLogger.debug('authSlice - fetchUserProfile.fulfilled', { payload: action.payload });
         state.status = 'succeeded';
         state.user = action.payload; // userProfile from backend
         state.isAuthenticated = true;
@@ -345,24 +344,24 @@ const authSlice = createSlice({
         if (action.payload) {
           if (action.payload.tenant) {
             state.companyName = action.payload.tenant.companyName || 'N/A';
-            console.log('authSlice - companyName set to:', state.companyName);
+            ClientLogger.debug('authSlice - companyName set', { companyName: state.companyName });
           } else {
             state.companyName = 'N/A';
-            console.log('authSlice - companyName set to N/A (no tenant in payload or companyName missing)');
+            ClientLogger.debug('authSlice - companyName set to N/A (no tenant in payload or companyName missing)');
           }
           if (action.payload.role) {
             state.role = action.payload.role;
-            console.log('authSlice - role set to:', state.role);
+            ClientLogger.debug('authSlice - role set', { role: state.role });
           } else {
-            state.role = null; 
-            console.log('authSlice - role set to null (no role in payload)');
+            state.role = null;
+            ClientLogger.debug('authSlice - role set to null (no role in payload)');
           }
           if (action.payload.tenantId) {
             state.tenantId = action.payload.tenantId;
-            console.log('authSlice - tenantId set to:', state.tenantId);
+            ClientLogger.debug('authSlice - tenantId set', { tenantId: state.tenantId });
           } else {
             state.tenantId = null;
-            console.log('authSlice - tenantId set to null (no tenantId in payload)');
+            ClientLogger.debug('authSlice - tenantId set to null (no tenantId in payload)');
           }
         }
       })

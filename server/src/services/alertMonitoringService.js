@@ -2,6 +2,7 @@ import Alert from '../models/Alert.js';
 import Product from '../models/Product.js';
 import { sendAlertEmail } from './emailService.js';
 import mongoose from 'mongoose';
+import logger from '../utils/logger.js';
 
 class AlertMonitoringService {
   constructor() {
@@ -13,7 +14,10 @@ class AlertMonitoringService {
     if (this.isRunning) return;
     
     this.isRunning = true;
-    console.log('🔔 Alert Monitoring Service avviato');
+    logger.info('Alert Monitoring Service avviato', {
+      intervalMinutes: 60,
+      service: 'AlertMonitoringService'
+    });
     
     // Controlla ogni ora
     this.intervalId = setInterval(() => {
@@ -31,13 +35,18 @@ class AlertMonitoringService {
       this.intervalId = null;
     }
     this.isRunning = false;
-    console.log('🔔 Alert Monitoring Service fermato');
+    logger.info('Alert Monitoring Service fermato', {
+      service: 'AlertMonitoringService'
+    });
   }
 
   // Controlla tutti gli alert attivi
   async checkAllAlerts() {
     try {
-      console.log('🔍 Controllo alert in corso...');
+      logger.debug('Controllo alert in corso', {
+        service: 'AlertMonitoringService',
+        action: 'checkAllAlerts'
+      });
       
       const activeAlerts = await Alert.find({ isActive: true })
         .populate('product')
@@ -50,9 +59,17 @@ class AlertMonitoringService {
         if (triggered) triggeredCount++;
       }
 
-      console.log(`✅ Controllo completato. ${triggeredCount} alert attivati su ${activeAlerts.length} totali.`);
+      logger.info('Controllo alert completato', {
+        triggeredCount,
+        totalAlerts: activeAlerts.length,
+        service: 'AlertMonitoringService'
+      });
     } catch (error) {
-      console.error('❌ Errore nel controllo degli alert:', error);
+      logger.error('Errore nel controllo degli alert', {
+        error: error.message,
+        stack: error.stack,
+        service: 'AlertMonitoringService'
+      });
     }
   }
 
@@ -60,7 +77,10 @@ class AlertMonitoringService {
   async checkSingleAlert(alert) {
     try {
       if (!alert.product) {
-        console.warn(`⚠️ Prodotto non trovato per alert ${alert._id}`);
+        logger.warn('Prodotto non trovato per alert', {
+          alertId: alert._id,
+          service: 'AlertMonitoringService'
+        });
         return false;
       }
 
@@ -88,7 +108,12 @@ class AlertMonitoringService {
 
       return alertTriggered;
     } catch (error) {
-      console.error(`❌ Errore nel controllo dell'alert ${alert._id}:`, error);
+      logger.error('Errore nel controllo dell\'alert singolo', {
+        error: error.message,
+        stack: error.stack,
+        alertId: alert._id,
+        service: 'AlertMonitoringService'
+      });
       return false;
     }
   }
@@ -96,7 +121,14 @@ class AlertMonitoringService {
   // Attiva un alert e invia notifica
   async triggerAlert(alert, product, supplier, currentPrice) {
     try {
-      console.log(`🚨 Alert attivato: ${alert.type} per prodotto ${product.description}`);
+      logger.info('Alert attivato', {
+        alertType: alert.type,
+        productDescription: product.description,
+        productId: product._id,
+        supplierId: supplier.supplierId,
+        currentPrice,
+        service: 'AlertMonitoringService'
+      });
 
       // Registra l'attivazione
       await alert.recordTrigger();
@@ -114,7 +146,12 @@ class AlertMonitoringService {
       await this.sendNotification(alertData);
 
     } catch (error) {
-      console.error(`❌ Errore nell'attivazione dell'alert ${alert._id}:`, error);
+      logger.error('Errore nell\'attivazione dell\'alert', {
+        error: error.message,
+        stack: error.stack,
+        alertId: alert._id,
+        service: 'AlertMonitoringService'
+      });
     }
   }
 
@@ -150,11 +187,21 @@ class AlertMonitoringService {
 
       // TODO: Implementare invio PEC se necessario
       if (alert.notificationMethod === 'pec' || alert.notificationMethod === 'both') {
-        console.log('📧 Invio PEC non ancora implementato');
+        logger.debug('Invio PEC non ancora implementato', {
+          alertId: alert._id,
+          notificationMethod: alert.notificationMethod,
+          service: 'AlertMonitoringService'
+        });
       }
 
     } catch (error) {
-      console.error('❌ Errore nell\'invio della notifica:', error);
+      logger.error('Errore nell\'invio della notifica', {
+        error: error.message,
+        stack: error.stack,
+        alertId: alert._id,
+        notificationMethod: alert.notificationMethod,
+        service: 'AlertMonitoringService'
+      });
     }
   }
 
@@ -171,7 +218,13 @@ class AlertMonitoringService {
         await this.checkSingleAlert(alert);
       }
     } catch (error) {
-      console.error(`❌ Errore nel controllo degli alert per il prodotto ${productId}:`, error);
+      logger.error('Errore nel controllo degli alert per il prodotto', {
+        error: error.message,
+        stack: error.stack,
+        productId,
+        tenantId,
+        service: 'AlertMonitoringService'
+      });
     }
   }
 }

@@ -8,10 +8,14 @@ import App from './App';
 import theme from './theme';
 import store from './store/store';
 import reportWebVitals from './reportWebVitals';
-import './firebase';  // assicura l’inizializzazione
+import './firebase';  // assicura l'inizializzazione
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import { clearUser, fetchUserProfile } from './store/authSlice'; // Modificato setUser con fetchUserProfile
+
+// Importa e esponi ClientLogger globalmente
+import ClientLogger from './utils/ClientLogger';
+window.ClientLogger = ClientLogger;
 
 // Listen for Firebase auth state changes
 onAuthStateChanged(auth, async (user) => {

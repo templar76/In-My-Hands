@@ -3,16 +3,32 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Box, Typography, TextField, Button, Paper, Grid, IconButton, Switch, FormControlLabel, Divider, Alert } from '@mui/material';
 import { Edit as EditIcon, Save as SaveIcon } from '@mui/icons-material';
 import { updateUserProfile, changePassword } from '../store/userSlice';
+import ClientLogger from '../utils/ClientLogger';
 
 const MyProfilePage = () => {
   const dispatch = useDispatch();
   const { user, tenantId, role, companyName: authCompanyName } = useSelector(state => state.auth);
-  console.log('MyProfilePage - useSelector: user:', user, 'tenantId:', tenantId, 'role:', role, 'authCompanyName:', authCompanyName);
+  
+  ClientLogger.debug('Caricamento profilo utente', {
+    userId: user?.uid,
+    tenantId,
+    role,
+    companyName: authCompanyName,
+    component: 'MyProfilePage',
+    action: 'load_profile'
+  });
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const companyToDisplay = authCompanyName || tenantId || 'N/A';
-  console.log('MyProfilePage - companyToDisplay:', companyToDisplay);
+  
+  ClientLogger.debug('Determinazione nome azienda da visualizzare', {
+    companyToDisplay,
+    authCompanyName,
+    tenantId,
+    component: 'MyProfilePage',
+    action: 'determine_company_display'
+  });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');

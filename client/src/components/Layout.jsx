@@ -64,9 +64,8 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 
 // Definisci qui le autorizzazioni per ruolo
 const menuPermissions = {
-  admin: ['Dashboard','Fatture', 'Prodotti', 'Fornitori', 'Alert', 'Settings', 'Inviti'],
-  operator: ['Dashboard', 'Prodotti', 'Alert'], // Esempio: l'operatore vede meno voci
-  // Aggiungi altri ruoli se necessario
+  admin: ['Dashboard','Fatture', 'Prodotti', 'Fornitori', 'Alert', 'Settings', 'Utenti'], // Cambiato da 'Inviti' a 'Utenti'
+  operator: ['Dashboard', 'Prodotti', 'Alert'],
 };
 
 export default function Layout({ children }) {
@@ -118,7 +117,7 @@ export default function Layout({ children }) {
     { text: 'Fornitori', icon: <PeopleIcon />, path: '/suppliers' },
     { text: 'Alert', icon: <NotificationsIcon />, path: '/alerts' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-    { text: 'Inviti', icon: <PersonAddIcon />, path: '/invitations' },
+    { text: 'Utenti', icon: <PersonAddIcon />, path: '/users' }, // Cambiato da 'Inviti' a 'Utenti'
   ];
 
   // Filtra le voci di menu in base al ruolo dell'utente

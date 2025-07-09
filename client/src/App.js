@@ -23,9 +23,9 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const SupplierDetail = lazy(() => import('./pages/SupplierDetail'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
 
 const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
-const Invitations = lazy(() => import('./pages/Invitations'));
 const MyProfilePage = lazy(() => import('./pages/MyProfilePage')); // Importa la pagina del profilo
 const ProductDuplicatesReview = lazy(() => import('./pages/ProductDuplicatesReview'));
 
@@ -84,7 +84,7 @@ function App() {
                   path="/invitations"
                   element={
                     <ProtectedRoute>
-                      <Invitations />
+                      <UserManagement />
                     </ProtectedRoute>
                   }
                 />
@@ -99,6 +99,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <ProductDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/users"
+                  element={
+                    <ProtectedRoute>
+                      <UserManagement />
                     </ProtectedRoute>
                   }
                 />

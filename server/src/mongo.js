@@ -1,23 +1,40 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import logger from './utils/logger.js';
 
 dotenv.config();
 
 const uri = process.env.MONGO_URI;
 if (!uri) {
-  console.error('MONGO_URI non definito in .env');
+  logger.error('MongoDB URI not defined in environment variables', {
+    component: 'database',
+    action: 'connection_init',
+    error: 'MONGO_URI_MISSING'
+  });
   process.exit(1);
 }
 
-console.log(`Tentativo di connessione a MongoDB con URI: ${uri}`);
-mongoose.connect(uri, {
+logger.info('Attempting MongoDB connection', {
+  component: 'database',
+  action: 'connection_attempt',
+  uri: uri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') // Nasconde credenziali
+});
 
-})
+mongoose.connect(uri, {})
   .then(() => {
-    console.log('Connesso a MongoDB Atlas');
+    logger.info('Successfully connected to MongoDB Atlas', {
+      component: 'database',
+      action: 'connection_success',
+      status: 'connected'
+    });
   })
   .catch((err) => {
-    console.error('Errore di connessione a MongoDB:', err);
+    logger.error('Failed to connect to MongoDB', {
+      component: 'database',
+      action: 'connection_failed',
+      error: err.message,
+      stack: err.stack
+    });
   });
 
 export default mongoose;

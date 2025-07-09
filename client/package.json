@@ -29,15 +29,18 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:beta": "env-cmd -f .env.beta react-scripts start",
     "build": "react-scripts build",
+    "build:beta": "env-cmd -f .env.beta react-scripts build",
+    "build:production": "env-cmd -f .env.production react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+  "devDependencies": {
+    "env-cmd": "^10.1.0",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.5"
   },
   "browserslist": {
     "production": [
@@ -50,9 +53,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "react-scripts": "^5.0.1",
-    "typescript": "^4.9.5"
   }
 }

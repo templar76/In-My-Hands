@@ -41,6 +41,7 @@ import axios from 'axios';
 import { getApiUrl } from '../utils/apiConfig';
 import { auth } from '../firebase';
 import InvoiceUploadComponent from '../components/InvoiceUploadComponent';
+import ClientLogger from '../utils/ClientLogger';
 
 //const API_URL = getApiUrl();
 
@@ -119,7 +120,12 @@ const Invoices = () => {
         totalCount: response.data.pagination.totalCount
       }));
     } catch (error) {
-      console.error('Errore nel caricamento fatture:', error);
+      ClientLogger.error('Errore nel caricamento fatture', {
+        error: error,
+        filters: filters,
+        pagination: pagination,
+        context: 'Invoices.loadInvoices'
+      });
       setError('Errore nel caricamento delle fatture');
     } finally {
       setLoading(false);
@@ -142,9 +148,12 @@ const Invoices = () => {
         { headers }
       );
 
-      setStats(response.data.stats); // ← Cambia questa riga da response.data a response.data.stats
+      setStats(response.data.stats);
     } catch (error) {
-      console.error('Errore nel caricamento statistiche:', error);
+      ClientLogger.error('Errore nel caricamento statistiche', {
+        error: error,
+        context: 'Invoices.loadStats'
+      });
     }
   }, []);
 
@@ -159,21 +168,33 @@ const Invoices = () => {
         'Content-Type': 'application/json'
       };
 
-      console.log('Loading suppliers from API...');
+      ClientLogger.debug('Loading suppliers from API', {
+        context: 'Invoices.loadSuppliers'
+      });
       const response = await axios.get(
         `${getApiUrl()}/api/suppliers`,
         { headers }
       );
 
-      console.log('Suppliers API response:', response.data);
-      console.log('Number of suppliers:', response.data?.length);
+      ClientLogger.debug('Suppliers API response', {
+        responseData: response.data,
+        suppliersCount: response.data?.length,
+        context: 'Invoices.loadSuppliers'
+      });
+      
       if (response.data && response.data.length > 0) {
-        console.log('First supplier structure:', response.data[0]);
+        ClientLogger.debug('First supplier structure', {
+          firstSupplier: response.data[0],
+          context: 'Invoices.loadSuppliers'
+        });
       }
       
       setSuppliers(response.data);
     } catch (error) {
-      console.error('Errore nel caricamento fornitori:', error);
+      ClientLogger.error('Errore nel caricamento fornitori', {
+        error: error,
+        context: 'Invoices.loadSuppliers'
+      });
     }
   }, []);
 
@@ -187,16 +208,23 @@ const Invoices = () => {
 
   // Debug useEffect - per controllare i suppliers
   useEffect(() => {
-    console.log('Suppliers state updated:', suppliers);
-    console.log('Suppliers length:', suppliers?.length);
+    ClientLogger.debug('Suppliers state updated', {
+      suppliers: suppliers,
+      suppliersLength: suppliers?.length,
+      context: 'Invoices.useEffect.suppliersDebug'
+    });
+    
     if (suppliers && suppliers.length > 0) {
-      console.log('Sample supplier:', suppliers[0]);
-      console.log('Suppliers names check:', suppliers.map(s => ({
-        id: s._id,
-        supplierName: s.supplierName,
-        name: s.name,
-        displayName: s.supplierName || s.name || 'Nome non disponibile'
-      })));
+      ClientLogger.debug('Suppliers analysis', {
+        sampleSupplier: suppliers[0],
+        suppliersMapping: suppliers.map(s => ({
+          id: s._id,
+          supplierName: s.supplierName,
+          name: s.name,
+          displayName: s.supplierName || s.name || 'Nome non disponibile'
+        })),
+        context: 'Invoices.useEffect.suppliersDebug'
+      });
     }
   }, [suppliers]);
 
@@ -241,7 +269,11 @@ const Invoices = () => {
       setSelectedInvoice(response.data);
       setDetailDialogOpen(true);
     } catch (error) {
-      console.error('Errore nel caricamento dettagli fattura:', error);
+      ClientLogger.error('Errore nel caricamento dettagli fattura', {
+        error: error,
+        invoiceId: invoiceId,
+        context: 'Invoices.handleViewDetails'
+      });
       setError('Errore nel caricamento dei dettagli della fattura');
     }
   };

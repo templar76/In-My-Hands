@@ -123,21 +123,10 @@ const ProductDetail = () => {
       );
       
       // DEBUG: Aggiungi questo log
-      console.log('=== FRONTEND PRODUCT DETAIL DEBUG ===');
-      console.log('Response data:', response.data);
-      console.log('Overview data:', response.data.overview);
-      console.log('Overview totalVolume:', response.data.overview?.totalVolume);
-      console.log('Overview totalQuantity:', response.data.overview?.totalQuantity);
-      console.log('Overview averagePrice:', response.data.overview?.averagePrice);
-      console.log('Purchase History:', response.data.purchaseHistory);
-      console.log('First transaction:', response.data.purchaseHistory?.transactions?.[0]);
-      console.log('Transaction keys:', response.data.purchaseHistory?.transactions?.[0] ? Object.keys(response.data.purchaseHistory.transactions[0]) : 'No transactions');
-      console.log('====================================');
       
       setProductData(response.data);
     } catch (err) {
       setError('Errore nel caricamento dei dettagli del prodotto');
-      console.error('Error fetching product details:', err);
     } finally {
       setLoading(false);
     }
@@ -172,7 +161,6 @@ const ProductDetail = () => {
         }
       }
     } catch (err) {
-      console.error('Error fetching alerts:', err);
     }
   }, [id]);
 
@@ -234,7 +222,6 @@ const ProductDetail = () => {
       
     } catch (err) {
       setAlertError(err.response?.data?.message || 'Errore nel salvataggio dell\'alert');
-      console.error('Error saving alert:', err);
     } finally {
       setAlertLoading(false);
     }
@@ -265,7 +252,6 @@ const ProductDetail = () => {
       
     } catch (err) {
       setAlertError('Errore nell\'eliminazione dell\'alert');
-      console.error('Error deleting alert:', err);
     } finally {
       setAlertLoading(false);
     }
@@ -300,7 +286,6 @@ const ProductDetail = () => {
       
     } catch (err) {
       setAlertError('Errore nel test dell\'alert');
-      console.error('Error testing alert:', err);
     } finally {
       setAlertLoading(false);
     }

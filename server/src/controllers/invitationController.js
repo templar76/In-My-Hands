@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import User from '../models/User.js';
 import Invitation from '../models/Invitation.js';
 import { auth } from '../firebaseAdmin.js';
+import logger from '../utils/logger.js';
 
 // Configura il transporter SMTP
 const transporter = nodemailer.createTransport({
@@ -35,7 +36,12 @@ export const checkExistingUser = async (req, res) => {
     const exists = await User.exists({ tenantId, email });
     return res.json({ exists: Boolean(exists) });
       } catch (err) {
-        console.error('checkExistingUser error', err);
+        logger.error('Errore durante il controllo utente esistente', {
+          tenantId,
+          email,
+          error: err.message,
+          stack: err.stack
+        });
         return res.status(500).json({ error: err.message });
         }
 };
@@ -51,14 +57,20 @@ export const checkExistingUser = async (req, res) => {
 // Implementazione completa per creazione utenti nel tenant
 // Rimozione codice residuo fuori posto
 // Funzione createTenantUser correttamente chiusa
+// Nella funzione createTenantUser, dopo aver processato tutti i risultati:
 export const createTenantUser = async (req, res) => {
   const { tenantId } = req.params;
-  console.log(`[createTenantUser] Received request for tenantId: ${tenantId}`);
-  console.log('[createTenantUser] Raw req.body:', req.body);
+  logger.debug('Richiesta creazione utente tenant ricevuta', { tenantId });
+  logger.debug('Dati richiesta ricevuti', { body: req.body });
   const { emails, role } = req.body;
   
   if (!emails?.length || !role) {
-    console.error(`[createTenantUser] Validation failed: emails length=${emails?.length}, role=${role}, raw emails value=${JSON.stringify(emails)}`);
+    logger.warn('Validazione fallita per creazione utente tenant', {
+      tenantId,
+      emailsLength: emails?.length,
+      role,
+      rawEmails: emails
+    });
     return res.status(400).json({ error: 'Email e ruolo obbligatori' });
   }
 
@@ -98,20 +110,53 @@ export const createTenantUser = async (req, res) => {
 
           return { email, token, inviteUrl, emailSent: true, invitationId: invitation._id };
         } catch (emailError) {
-          console.error(`Errore nell'invio email a ${email}:`, emailError);
-          // L'email non è stata inviata, quindi non creiamo il record dell'invito.
-          // Restituiamo un errore specifico per questa email.
+          logger.error('Errore invio email invito', {
+            email,
+            tenantId,
+            error: emailError.message,
+            stack: emailError.stack
+          });
           return { email, emailSent: false, error: `Errore nell'invio dell'email: ${emailError.message}` };
         }
       } catch (error) {
-        console.error(`Errore nella creazione dell'invito per ${email}:`, error);
-        throw error; // Rilancia l'errore per gestirlo nel catch principale
+        logger.error('Errore creazione invito', {
+          email,
+          tenantId,
+          error: error.message,
+          stack: error.stack
+        });
+        throw error;
       }
     }));
 
+    // ✅ NUOVO: Controlla se ci sono stati errori nell'invio email
+    const hasEmailErrors = results.some(result => result.emailSent === false);
+    const allEmailsFailed = results.every(result => result.emailSent === false);
+    
+    if (allEmailsFailed) {
+      // Se tutte le email sono fallite, restituisci un errore
+      return res.status(500).json({
+        error: 'Impossibile inviare le email di invito. Verificare la configurazione SMTP.',
+        results
+      });
+    } else if (hasEmailErrors) {
+      // Se alcune email sono fallite, restituisci un warning con status 207 (Multi-Status)
+      return res.status(207).json({
+        message: 'Alcuni inviti sono stati creati ma non è stato possibile inviare tutte le email.',
+        results
+      });
+    }
+    
+    // Tutti gli inviti sono stati inviati con successo
     return res.status(201).json(results);
   } catch (err) {
-    console.error('createTenantUser error:', err);
+    logger.error('Errore generale creazione utente tenant', {
+      tenantId,
+      emails,
+      role,
+      error: err.message,
+      stack: err.stack
+    });
     return res.status(500).json({ error: err.message });
   }
 };
@@ -123,7 +168,6 @@ export const createTenantUser = async (req, res) => {
  */
 export const deleteInvitation = async (req, res) => {
   const { tenantId, invitationId } = req.params;
-  // L'autenticazione e l'autorizzazione sono gestite dai middleware
 
   try {
     const invitation = await Invitation.findOne({ _id: invitationId, tenantId });
@@ -133,10 +177,16 @@ export const deleteInvitation = async (req, res) => {
     }
 
     await Invitation.deleteOne({ _id: invitationId });
+    logger.info('Invito eliminato con successo', { tenantId, invitationId });
 
     return res.status(200).json({ message: 'Invito eliminato con successo.' });
   } catch (error) {
-    console.error(`Errore durante l'eliminazione dell'invito ${invitationId} per il tenant ${tenantId}:`, error);
+    logger.error('Errore eliminazione invito', {
+      tenantId,
+      invitationId,
+      error: error.message,
+      stack: error.stack
+    });
     if (error.name === 'CastError') {
       return res.status(400).json({ error: 'ID invito non valido.' });
     }
@@ -188,7 +238,11 @@ export const acceptInvitation = async (req, res) => {
       role: invitation.role
     });
   } catch (err) {
-    console.error('acceptInvitation error', err);
+    logger.error('Errore accettazione invito', {
+      token,
+      error: err.message,
+      stack: err.stack
+    });
     return res.status(500).json({ error: err.message });
   }
 };
@@ -209,7 +263,6 @@ export const acceptInvitation = async (req, res) => {
  */
 export const resendInvitation = async (req, res) => {
   const { tenantId, invitationId } = req.params;
-  // L'autenticazione e l'autorizzazione sono gestite dai middleware
 
   try {
     let invitation = await Invitation.findOne({ _id: invitationId, tenantId });
@@ -233,13 +286,16 @@ export const resendInvitation = async (req, res) => {
     // Se l'invito è scaduto, genera un nuovo token e aggiorna la data di scadenza
     if (invitation.expiresAt < new Date()) {
       invitation.token = crypto.randomBytes(32).toString('hex');
-      invitation.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Nuova scadenza: 7 giorni
+      invitation.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await invitation.save();
       newInviteUrl = `${process.env.FRONTEND_URL}/accept-invite?token=${invitation.token}`;
-      console.log(`[resendInvitation] Invito ${invitationId} scaduto. Token e scadenza rigenerati.`);
+      logger.info('Token invito rigenerato per invito scaduto', {
+        invitationId,
+        tenantId,
+        newExpiresAt: invitation.expiresAt
+      });
     }
 
-    // Invia l'email di invito
     try {
       await transporter.sendMail({
         from: process.env.SMTP_FROM,
@@ -253,7 +309,11 @@ export const resendInvitation = async (req, res) => {
           <p>Questo link scadrà il ${invitation.expiresAt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}.</p>
         `
       });
-      console.log(`[resendInvitation] Email di reinvio inviata con successo a ${invitation.email} per invito ${invitationId}.`);
+      logger.info('Email reinvio inviata con successo', {
+        email: invitation.email,
+        invitationId,
+        tenantId
+      });
       return res.status(200).json({ 
         message: 'Email di invito inviata nuovamente con successo.', 
         invitation: invitation, 
@@ -261,7 +321,13 @@ export const resendInvitation = async (req, res) => {
         emailSent: true 
       });
     } catch (emailError) {
-      console.error("Errore nell'invio dell'email di reinvito:", emailError);
+      logger.error('Errore invio email reinvito', {
+        email: invitation.email,
+        invitationId,
+        tenantId,
+        error: emailError.message,
+        stack: emailError.stack
+      });
       return res.status(200).json({ 
         message: "Invito aggiornato, ma si è verificato un errore nell'invio dell'email.",
         invitation: invitation, 
@@ -271,7 +337,12 @@ export const resendInvitation = async (req, res) => {
     }
 
   } catch (error) {
-    console.error(`[resendInvitation] Errore durante il reinvio dell'invito ${invitationId} per il tenant ${tenantId}:`, error);
+    logger.error('Errore generale reinvio invito', {
+      tenantId,
+      invitationId,
+      error: error.message,
+      stack: error.stack
+    });
     if (error.name === 'CastError') {
       return res.status(400).json({ error: 'ID invito non valido.' });
     }
@@ -281,22 +352,26 @@ export const resendInvitation = async (req, res) => {
 
 export const getTenantInvitations = async (req, res) => {
   const { tenantId } = req.params;
-  // L'autenticazione e l'autorizzazione (req.user.tenantId === tenantId && req.user.role === 'admin')
-  // dovrebbero essere gestite dai middleware (verifyFirebaseToken, requireAdmin, requireTenant)
 
   try {
     const invitations = await Invitation.find({ tenantId }).sort({ createdAt: -1 }).lean();
-    // Potremmo voler popolare alcuni dati, ma per ora restituiamo gli inviti così come sono.
-    // Esempio: .populate('createdBy', 'displayName email') se avessimo un campo createdBy
 
     if (!invitations) {
-      // Anche se non ci sono inviti, è una richiesta valida, quindi restituiamo un array vuoto.
       return res.status(200).json({ invitations: [] });
     }
 
+    logger.debug('Inviti recuperati con successo', {
+      tenantId,
+      count: invitations.length
+    });
+
     return res.status(200).json({ invitations });
   } catch (error) {
-    console.error(`Errore nel recupero degli inviti per il tenant ${tenantId}:`, error);
+    logger.error('Errore recupero inviti tenant', {
+      tenantId,
+      error: error.message,
+      stack: error.stack
+    });
     return res.status(500).json({ error: 'Errore interno del server durante il recupero degli inviti.' });
   }
 };

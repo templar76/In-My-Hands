@@ -1,38 +1,76 @@
-// client/src/components/Layout.jsx (VERSIONE FINALE CORRETTA)
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import {
-  Box,
-  CssBaseline,
-  useTheme,
-} from '@mui/material';
-import { useResponsive, useSidebarState } from '../hooks/useResponsive';
-import ResponsiveSidebar from './ResponsiveSidebar';
-import BottomNavigation from './BottomNavigation';
-import TopBar from './TopBar';
+// src/components/Layout.jsx
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import Avatar from '@mui/material/Avatar';
+import Collapse from '@mui/material/Collapse';
+import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Tooltip from '@mui/material/Tooltip';
+import { logoutUser } from '../store/authSlice';
+import { styled, useTheme } from '@mui/material/styles';
+import Box from '@mui/material/Box';
+import MuiAppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import List from '@mui/material/List';
+import CssBaseline from '@mui/material/CssBaseline';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Drawer from '@mui/material/Drawer';
+import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import HomeIcon from '@mui/icons-material/Home';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import PeopleIcon from '@mui/icons-material/People';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import SettingsIcon from '@mui/icons-material/Settings';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { Receipt } from '@mui/icons-material';
+import { memo } from 'react';
 
-// Import delle pagine esistenti nel progetto
-import Home from '../pages/Home';
-import Invoices from '../pages/Invoices';
-import Products from '../pages/Products';
-import Suppliers from '../pages/Suppliers';
-import Alerts from '../pages/Alerts';
-import Settings from '../pages/Settings';
-import MyProfilePage from '../pages/MyProfilePage';
-import Invitations from '../pages/Invitations';
-import InvoiceUpload from '../pages/InvoiceUpload';
-import ProductDetail from '../pages/ProductDetail';
-import ProductDuplicatesReview from '../pages/ProductDuplicatesReview';
-import SupplierDetail from '../pages/SupplierDetail';
-import Login from '../pages/Login';
-import Register from '../pages/Register';
-import NotFound from '../pages/NotFound';
-import ResetPassword from '../pages/ResetPassword';
-import AcceptInvitationPage from '../pages/AcceptInvitationPage';
-import CompleteTenantRegistrationPage from '../pages/CompleteTenantRegistrationPage';
+const drawerWidth = 240;
 
-const Layout = ({ children }) => {
+const AppBar = styled(MuiAppBar, {
+  shouldForwardProp: (prop) => prop !== 'open',
+})(({ theme, open }) => ({
+  zIndex: theme.zIndex.drawer + 1,
+  transition: theme.transitions.create(['width', 'margin'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  ...(open && {
+    marginLeft: drawerWidth,
+    width: `calc(100% - ${drawerWidth}px)`,
+    transition: theme.transitions.create(['width', 'margin'], {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+  }),
+}));
+
+const DrawerHeader = styled('div')(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(0, 1),
+  ...theme.mixins.toolbar,
+  justifyContent: 'flex-end',
+}));
+
+// Definisci qui le autorizzazioni per ruolo
+const menuPermissions = {
+  admin: ['Dashboard','Fatture', 'Prodotti', 'Fornitori', 'Alert', 'Settings', 'Utenti'], // Cambiato da 'Inviti' a 'Utenti'
+  operator: ['Dashboard', 'Prodotti', 'Alert'],
+};
+
+// Wrap heavy components
+const Layout = memo(({ children, mode, setMode }) => {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,13 +106,18 @@ const Layout = ({ children }) => {
   };
   
   const allMenuItems = [
-    { text: 'Dashboard', icon: 'HomeIcon', path: '/dashboard' },
-    { text: 'Fatture', icon: 'ReceiptIcon', path: '/invoices' },
-    { text: 'Prodotti', icon: 'ShoppingCartIcon', path: '/products' },
-    { text: 'Fornitori', icon: 'PeopleIcon', path: '/suppliers' },
-    { text: 'Alert', icon: 'NotificationsIcon', path: '/alerts' },
-    { text: 'Settings', icon: 'SettingsIcon', path: '/settings' },
-    { text: 'Invitations', icon: 'PersonAddIcon', path: '/invitations' },
+    { text: 'Dashboard', icon: <HomeIcon />, path: '/dashboard' },
+    { text: 'Fatture', icon: <Receipt/>, path: '/invoices' },
+    { text: 'Prodotti',
+      icon: <ShoppingCartIcon />,
+      children: [
+        { text: 'Tutti i Prodotti', path: '/products' },
+        { text: 'Prodotti Duplicati', path: '/products/duplicates' }
+      ]},
+    { text: 'Fornitori', icon: <PeopleIcon />, path: '/suppliers' },
+    { text: 'Alert', icon: <NotificationsIcon />, path: '/alerts' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'Utenti', icon: <PersonAddIcon />, path: '/users' }, // Cambiato da 'Inviti' a 'Utenti'
   ];
   
   // Filtra le voci di menu in base al ruolo dell'utente
@@ -247,7 +290,6 @@ const Layout = ({ children }) => {
       )}
     </Box>
   );
-};
+});
 
 export default Layout;
-

@@ -1,55 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Aggiungi useCallback
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
   CardContent,
   Typography,
-  Grid,
-  Chip,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Button,
-  TextField,
-  Switch,
-  FormControlLabel,
-  Alert,
-  CircularProgress,
   IconButton,
+  Chip,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Pagination,
+  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Switch,
+  FormControlLabel,
+  Grid,
   Tabs,
   Tab,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails
+  Alert,
+  Pagination
 } from '@mui/material';
 import {
-  NotificationsActive,
   Edit,
   Delete,
   ToggleOn,
   ToggleOff,
-  TrendingUp,
   Schedule,
-  ExpandMore,
-  Refresh
-} from '@mui/icons-material'; // Rimossi Add, TrendingDown, Email
+  FileDownload
+} from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
-import { auth } from '../firebase';
-import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -108,130 +99,113 @@ const Alerts = () => {
     isActive: true
   });
 
-  const fetchAlerts = useCallback(async () => {
+  const fetchAlerts = async () => {
     try {
       setLoading(true);
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        setError('Utente non autenticato');
-        return;
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts?page=${page}&limit=${limit}&search=${searchTerm}&type=${filterType}&status=${filterStatus}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const token = await firebaseUser.getIdToken();
-      const apiUrl = getApiUrl();
-      
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString()
+      const data = await response.json();
+      ClientLogger.info('Alerts fetched successfully', {
+        component: 'Alerts',
+        action: 'fetchAlerts',
+        alertsCount: data.alerts?.length || 0,
+        page,
+        limit,
+        searchTerm,
+        filterType,
+        filterStatus
       });
       
-      if (filterType !== 'all') params.append('type', filterType);
-      if (filterStatus !== 'all') params.append('isActive', filterStatus === 'active');
-      if (searchTerm) params.append('search', searchTerm);
+      setAlerts(data.alerts || []);
+      setStats(data.stats || {});
       
-      const requestUrl = `${apiUrl}/api/alerts?${params.toString()}`;
-      console.log('🔍 Fetching alerts from:', requestUrl);
-      console.log('🔑 Token present:', !!token);
-      console.log('📊 Current filters:', { filterType, filterStatus, searchTerm, page, limit });
-      
-      const response = await axios.get(requestUrl, {
-        headers: { Authorization: `Bearer ${token}` }
+      ClientLogger.debug('Alerts data processed', {
+        component: 'Alerts',
+        action: 'fetchAlerts',
+        alertsProcessed: data.alerts?.length || 0,
+        stats: data.stats
       });
-      
-      console.log('📥 API Response:', response.data);
-      console.log('📋 Alerts received:', response.data.alerts);
-      console.log('🔢 Total count:', response.data.total);
-      
-      setAlerts(response.data.alerts || []);
-      
-      // Calcola statistiche
-      const totalAlerts = response.data.total || 0;
-      const activeAlerts = response.data.alerts?.filter(alert => alert.isActive).length || 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const weekAgo = new Date(today);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      
-      const triggeredToday = response.data.alerts?.filter(alert => 
-        alert.triggerHistory?.some(trigger => 
-          new Date(trigger.triggeredAt) >= today
-        )
-      ).length || 0;
-      
-      const triggeredThisWeek = response.data.alerts?.filter(alert => 
-        alert.triggerHistory?.some(trigger => 
-          new Date(trigger.triggeredAt) >= weekAgo
-        )
-      ).length || 0;
-      
-      const calculatedStats = {
-        totalAlerts,
-        activeAlerts,
-        triggeredToday,
-        triggeredThisWeek
-      };
-      
-      console.log('📈 Calculated stats:', calculatedStats);
-      setStats(calculatedStats);
-      
-    } catch (err) {
-      console.error('❌ Error fetching alerts:', err);
-      console.error('❌ Error response:', err.response?.data);
-      console.error('❌ Error status:', err.response?.status);
+    } catch (error) {
+      ClientLogger.error('Error fetching alerts', {
+        component: 'Alerts',
+        action: 'fetchAlerts',
+        error: error.message,
+        page,
+        limit,
+        searchTerm,
+        filterType,
+        filterStatus
+      });
       setError('Errore nel caricamento degli alert');
     } finally {
       setLoading(false);
     }
-  }, [page, limit, filterType, filterStatus, searchTerm]);
+  };
 
   const handleToggleAlert = async (alertId, currentStatus) => {
     try {
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) return;
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${alertId}/toggle`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isActive: !currentStatus })
+      });
       
-      const token = await firebaseUser.getIdToken();
-      const apiUrl = getApiUrl();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
-      await axios.patch( // ⭐ CAMBIATO da PUT a PATCH
-        `${apiUrl}/api/alerts/${alertId}/toggle`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      setSuccess(`Alert ${currentStatus ? 'disattivato' : 'attivato'} con successo`);
       await fetchAlerts();
-      
-    } catch (err) {
-      setError('Errore nell\'aggiornamento dell\'alert');
-      console.error('Error toggling alert:', err);
+    } catch (error) {
+      ClientLogger.error('Error toggling alert status', {
+        component: 'Alerts',
+        action: 'handleToggleAlert',
+        alertId,
+        currentStatus,
+        error: error.message
+      });
+      setError('Errore nell\'aggiornamento dello stato dell\'alert');
     }
   };
 
   const handleDeleteAlert = async (alertId) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questo alert?')) return;
+    if (!window.confirm('Sei sicuro di voler eliminare questo alert?')) {
+      return;
+    }
     
     try {
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) return;
-      
-      const token = await firebaseUser.getIdToken();
-      const apiUrl = getApiUrl();
-      
-      await axios.delete(
-        `${apiUrl}/api/alerts/${alertId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${alertId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
+      });
       
-      setSuccess('Alert eliminato con successo');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       await fetchAlerts();
-      
-    } catch (err) {
+    } catch (error) {
+      ClientLogger.error('Error deleting alert', {
+        component: 'Alerts',
+        action: 'handleDeleteAlert',
+        alertId,
+        error: error.message
+      });
       setError('Errore nell\'eliminazione dell\'alert');
-      console.error('Error deleting alert:', err);
     }
   };
 
@@ -248,97 +222,95 @@ const Alerts = () => {
 
   const handleSaveEdit = async () => {
     try {
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser || !selectedAlert) return;
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${editFormData._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          alertType: editFormData.alertType,
+          thresholdPrice: editFormData.alertType === 'price_threshold' ? parseFloat(editFormData.thresholdPrice) : undefined,
+          variationThreshold: editFormData.alertType === 'price_variation' ? parseInt(editFormData.variationThreshold) : undefined,
+          isActive: editFormData.isActive
+        })
+      });
       
-      const token = await firebaseUser.getIdToken();
-      const apiUrl = getApiUrl();
-      
-      const updateData = {
-        type: editFormData.alertType, // Cambiato da alertType a type
-        isActive: editFormData.isActive
-      };
-      
-      if (editFormData.alertType === 'price_threshold') {
-        updateData.thresholdPrice = parseFloat(editFormData.thresholdPrice);
-      } else {
-        updateData.variationThreshold = parseFloat(editFormData.variationThreshold);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      await axios.put(
-        `${apiUrl}/api/alerts/${selectedAlert._id}`,
-        updateData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
-      setSuccess('Alert aggiornato con successo');
       setEditDialog(false);
       await fetchAlerts();
-      
-    } catch (err) {
+    } catch (error) {
+      ClientLogger.error('Error updating alert', {
+        component: 'Alerts',
+        action: 'handleSaveEdit',
+        alertId: editFormData._id,
+        alertType: editFormData.alertType,
+        error: error.message
+      });
       setError('Errore nell\'aggiornamento dell\'alert');
-      console.error('Error updating alert:', err);
     }
   };
 
   // Funzione per inviare email di test
   const handleSendTestEmail = async (alertId) => {
     try {
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) return;
-      
-      const token = await firebaseUser.getIdToken();
-      const apiUrl = getApiUrl();
-      
-      await axios.post(
-        `${apiUrl}/api/alerts/${alertId}/test`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${alertId}/test`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
+      });
       
-      setSuccess('Email di test inviata con successo!');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
-    } catch (err) {
+      alert('Email di test inviata con successo!');
+    } catch (error) {
+      ClientLogger.error('Error sending test email', {
+        component: 'Alerts',
+        action: 'handleSendTestEmail',
+        alertId,
+        error: error.message
+      });
       setError('Errore nell\'invio dell\'email di test');
-      console.error('Error sending test email:', err);
     }
   };
 
   // Funzione per esportare dati alert
   const handleExportAlerts = async () => {
     try {
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) return;
-      
-      const token = await firebaseUser.getIdToken();
-      const apiUrl = getApiUrl();
-      
-      const response = await axios.get(
-        `${apiUrl}/api/alerts/export`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: 'blob'
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/export`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
+      });
       
-      // Crea e scarica il file
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `alerts_export_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
-      setSuccess('Export completato con successo!');
-      
-    } catch (err) {
-      setError('Errore nell\'export dei dati');
-      console.error('Error exporting alerts:', err);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `alerts_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      ClientLogger.error('Error exporting alerts', {
+        component: 'Alerts',
+        action: 'handleExportAlerts',
+        error: error.message
+      });
+      setError('Errore nell\'esportazione degli alert');
     }
   };
 

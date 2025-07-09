@@ -2,6 +2,7 @@ import Invoice from '../models/Invoice.js';
 import Product from '../models/Product.js';
 import ProductMatchingService from '../services/productMatchingService.js';
 import { isPhaseEnabled } from '../middleware/tenantConfig.js';
+import logger from '../utils/logger.js';
 
 /**
  * Ottiene tutte le linee fattura in attesa di revisione manuale
@@ -66,7 +67,7 @@ export const getPendingReviews = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nel recupero pending reviews:', error);
+    logger.error('Errore nel recupero pending reviews', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -133,7 +134,7 @@ export const getUnmatchedProducts = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nel recupero unmatched products:', error);
+    logger.error('Errore nel recupero unmatched products', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -215,7 +216,11 @@ export const approveMatch = async (req, res) => {
         userId
       );
     } catch (descError) {
-      console.warn(`Errore nell'aggiunta descrizione alternativa per prodotto ${productId}:`, descError.message);
+      logger.warn('Errore nell\'aggiunta descrizione alternativa', { 
+        productId, 
+        error: descError.message, 
+        tenantId: req.user?.tenantId 
+      });
     }
 
     res.json({
@@ -228,7 +233,12 @@ export const approveMatch = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nell\'approvazione abbinamento:', error);
+    logger.error('Errore nell\'approvazione abbinamento', { 
+      error: error.message, 
+      stack: error.stack, 
+      invoiceId: req.body?.invoiceId, 
+      tenantId: req.user?.tenantId 
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -275,7 +285,12 @@ export const rejectMatch = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nel rifiuto abbinamento:', error);
+    logger.error('Errore nel rifiuto abbinamento', { 
+      error: error.message, 
+      stack: error.stack, 
+      invoiceId: req.body?.invoiceId, 
+      tenantId: req.user?.tenantId 
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -381,7 +396,12 @@ export const createProductFromLine = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nella creazione prodotto:', error);
+    logger.error('Errore nella creazione prodotto', { 
+      error: error.message, 
+      stack: error.stack, 
+      invoiceId: req.body?.invoiceId, 
+      tenantId: req.user?.tenantId 
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -422,7 +442,12 @@ export const searchSimilarProducts = async (req, res) => {
       results: formattedResults 
     });
   } catch (error) {
-    console.error('Errore nella ricerca prodotti simili:', error);
+    logger.error('Errore nella ricerca prodotti simili', { 
+      error: error.message, 
+      stack: error.stack, 
+      description: req.query?.description, 
+      tenantId: req.user?.tenantId 
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -520,7 +545,12 @@ export const getReviewStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nel recupero statistiche review:', error);
+    logger.error('Errore nel recupero statistiche review', { 
+      error: error.message, 
+      stack: error.stack, 
+      period: req.query?.period, 
+      tenantId: req.user?.tenantId 
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };

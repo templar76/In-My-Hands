@@ -27,6 +27,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import InfoIcon from '@mui/icons-material/Info';
 import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 const API_URL = getApiUrl();
 
@@ -69,8 +70,22 @@ const ProductDuplicatesReview = () => {
           })
         ]);
         
-        console.log('Duplicates response:', duplicatesRes.data);
-        console.log('Insights response:', insightsRes.data);
+        ClientLogger.debug('Product duplicates data fetched', {
+          component: 'ProductDuplicatesReview',
+          action: 'fetchData',
+          duplicatesCount: duplicatesRes.data.groups?.length || 0,
+          insightsData: {
+            totalProducts: insightsRes.data.overview?.totalProducts,
+            potentialDuplicates: insightsRes.data.duplicateAnalysis?.potentialDuplicates
+          }
+        });
+        
+        ClientLogger.info('Insights and duplicates processed successfully', {
+          component: 'ProductDuplicatesReview',
+          action: 'fetchData',
+          totalGroups: duplicatesRes.data.groups?.length || 0,
+          insightsAvailable: !!insightsRes.data
+        });
         
         // Imposta insights
         setInsights(insightsRes.data);
@@ -95,11 +110,21 @@ const ProductDuplicatesReview = () => {
           }))
         }));
         
-        console.log('Transformed data:', transformedData);
+        ClientLogger.debug('Data transformation completed', {
+          component: 'ProductDuplicatesReview',
+          action: 'fetchData',
+          transformedGroupsCount: transformedData.length
+        });
         setDuplicates(transformedData);
         
       } catch (err) {
-        console.error('Error fetching data:', err);
+        ClientLogger.error('Error fetching product duplicates data', {
+          component: 'ProductDuplicatesReview',
+          action: 'fetchData',
+          error: err.message,
+          status: err.response?.status,
+          responseData: err.response?.data
+        });
         setError(`Errore nel caricamento dei dati: ${err.response?.data?.error || err.message}`);
         setDebugInfo({
           error: err.response?.data || err.message,
@@ -124,7 +149,13 @@ const ProductDuplicatesReview = () => {
       }
       
       const primaryProductId = group.items[0]._id;
-      console.log('Merging group:', groupId, 'Primary product:', primaryProductId);
+      ClientLogger.info('Starting product merge operation', {
+        component: 'ProductDuplicatesReview',
+        action: 'handleMerge',
+        groupId,
+        primaryProductId,
+        itemsCount: group.items.length
+      });
       
       await axios.post(
         `${API_URL}/api/product-duplicates/${encodeURIComponent(groupId)}/merge`,
@@ -135,7 +166,14 @@ const ProductDuplicatesReview = () => {
       setAlert({ type: 'success', message: 'Prodotti uniti con successo.' });
       setDuplicates(prev => prev.filter(g => g.id !== groupId));
     } catch (err) {
-      console.error('Merge error:', err);
+      ClientLogger.error('Error merging product duplicates', {
+        component: 'ProductDuplicatesReview',
+        action: 'handleMerge',
+        groupId,
+        error: err.message,
+        status: err.response?.status,
+        responseData: err.response?.data
+      });
       setAlert({ type: 'error', message: err.response?.data?.error || 'Merge fallito. Riprova più tardi.' });
     } finally {
       setLoading(false);
@@ -145,7 +183,11 @@ const ProductDuplicatesReview = () => {
   const handleIgnore = async (groupId) => {
     try {
       const token = await auth.currentUser.getIdToken();
-      console.log('Ignoring group:', groupId);
+      ClientLogger.info('Ignoring duplicate group', {
+        component: 'ProductDuplicatesReview',
+        action: 'handleIgnore',
+        groupId
+      });
       
       await axios.post(
         `${API_URL}/api/product-duplicates/${encodeURIComponent(groupId)}/ignore`,
@@ -156,7 +198,14 @@ const ProductDuplicatesReview = () => {
       setAlert({ type: 'info', message: 'Gruppo ignorato.' });
       setDuplicates(prev => prev.filter(g => g.id !== groupId));
     } catch (err) {
-      console.error('Ignore error:', err);
+      ClientLogger.error('Error ignoring duplicate group', {
+        component: 'ProductDuplicatesReview',
+        action: 'handleIgnore',
+        groupId,
+        error: err.message,
+        status: err.response?.status,
+        responseData: err.response?.data
+      });
       setAlert({ type: 'error', message: err.response?.data?.error || 'Operazione fallita. Riprova.' });
     }
   };

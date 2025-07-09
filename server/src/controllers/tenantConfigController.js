@@ -1,5 +1,6 @@
 import Tenant from '../models/Tenant.js';
 import { getEnabledPhases, isPhaseEnabled } from '../middleware/tenantConfig.js';
+import logger from '../utils/logger.js';
 
 /**
  * Ottiene la configurazione completa del product matching per il tenant
@@ -25,7 +26,11 @@ export const getTenantConfig = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Errore nel recupero configurazione tenant:', error);
+    logger.error('Errore nel recupero configurazione tenant', {
+      tenantId: req.user?.tenantId,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -110,7 +115,13 @@ export const updatePhaseConfig = async (req, res) => {
       enabledPhases: getEnabledPhases(tenant.productMatchingConfig)
     });
   } catch (error) {
-    console.error('Errore nell\'aggiornamento configurazione:', error);
+    logger.error('Errore nell\'aggiornamento configurazione', {
+      tenantId: req.user?.tenantId,
+      phase: req.params?.phaseNumber,
+      updates: req.body,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -167,7 +178,13 @@ export const togglePhase = async (req, res) => {
       enabledPhases: getEnabledPhases(tenant.productMatchingConfig)
     });
   } catch (error) {
-    console.error('Errore nel toggle fase:', error);
+    logger.error('Errore nel toggle fase', {
+      tenantId: req.user?.tenantId,
+      phase: req.params?.phase,
+      enabled: req.body?.enabled,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -212,7 +229,11 @@ export const getPhaseStats = async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    console.error('Errore nel recupero statistiche:', error);
+    logger.error('Errore nel recupero statistiche', {
+      tenantId: req.user?.tenantId,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -246,7 +267,11 @@ export const resetConfig = async (req, res) => {
       config: tenant.productMatchingConfig
     });
   } catch (error) {
-    console.error('Errore nel reset configurazione:', error);
+    logger.error('Errore nel reset configurazione', {
+      tenantId: req.user?.tenantId,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };

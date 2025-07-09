@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
+import logger from '../utils/logger.js';
 
 export const getProducts = async (req, res) => {
   try {
@@ -296,7 +297,12 @@ export const getProducts = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching products:', error);
+    logger.error('Errore recupero prodotti', {
+      tenantId: req.user?.tenantId,
+      query: req.query,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -452,7 +458,12 @@ export const getProductsStats = async (req, res) => {
       monthlyTrend
     });
   } catch (error) {
-    console.error('Error fetching product stats:', error);
+    logger.error('Errore recupero statistiche prodotti', {
+      tenantId: req.user?.tenantId,
+      query: req.query,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -693,9 +704,22 @@ export const getProductDetails = async (req, res) => {
       }
     };
 
+    logger.debug('Dettagli prodotto recuperati con successo', {
+      tenantId: req.user?.tenantId,
+      productId: req.params.id,
+      overviewDataLength: overviewData.length,
+      purchaseHistoryLength: purchaseHistory.length,
+      savingsDataLength: savingsData.length
+    });
+
     res.json(response);
   } catch (error) {
-    console.error('Error fetching product details:', error);
+    logger.error('Errore recupero dettagli prodotto', {
+      tenantId: req.user?.tenantId,
+      productId: req.params.id,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 };

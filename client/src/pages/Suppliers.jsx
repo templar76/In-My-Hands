@@ -43,6 +43,7 @@ import { getApiUrl } from '../utils/apiConfig';
 import { useSelector } from 'react-redux';
 import { auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
+import ClientLogger from '../utils/ClientLogger';
 
 // Registrazione dei componenti Chart.js
 ChartJS.register(
@@ -109,13 +110,26 @@ const Suppliers = () => {
         `${getApiUrl()}/api/suppliers/search?page=${page + 1}&limit=${rowsPerPage}&search=${searchTerm}`,
         { headers }
       );
-      console.log('Suppliers API Response:', suppliersResponse.data);
-      console.log('Suppliers total:', suppliersResponse.data.total);
-      console.log('Suppliers data:', suppliersResponse.data.data || suppliersResponse.data.suppliers);
+      ClientLogger.debug('Suppliers API Response', {
+        response: suppliersResponse.data,
+        total: suppliersResponse.data.total,
+        suppliers: suppliersResponse.data.data || suppliersResponse.data.suppliers,
+        component: 'Suppliers',
+        action: 'loadData'
+      });
       setSuppliers(suppliersResponse.data);
   
     } catch (error) {
-      console.error('Errore nel caricamento dati:', error);
+      ClientLogger.error('Error loading suppliers data', {
+        error: error.message,
+        stack: error.stack,
+        timeframe,
+        page,
+        rowsPerPage,
+        searchTerm,
+        component: 'Suppliers',
+        action: 'loadData'
+      });
       setError('Errore nel caricamento dei dati');
     } finally {
       setLoading(false);

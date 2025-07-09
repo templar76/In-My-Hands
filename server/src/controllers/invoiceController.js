@@ -11,6 +11,7 @@ import Supplier from '../models/Supplier.js'; // added import for Supplier model
 import Product from '../models/Product.js'; // added import for Product model
 import ProductMatchingService from '../services/productMatchingService.js';
 import fuzzysort from 'fuzzysort'; // added import for fuzzy search
+import logger from '../utils/logger.js'; // ✅ AGGIUNTO
 // helper to normalize descriptions for internal code
 const normalizeDescription = (desc) =>
   desc
@@ -22,15 +23,31 @@ const normalizeDescription = (desc) =>
 // Funzione per importare automaticamente i prodotti dai DatiBeniServizi con supporto alle tre fasi
 const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invoiceId, tenantConfig = null) => {
   try {
-    console.log(`Inizio importazione prodotti per fattura del supplier ${supplierId}`);
-    console.log(`Dati fattura ricevuti:`, {
+    // ✅ MIGRATO DA console.log
+    logger.info('Avvio importazione prodotti da fattura', {
+      supplierId,
+      tenantId,
+      invoiceId,
+      linesCount: invoiceData.lines?.length || 0,
+      hasConfig: !!tenantConfig
+    });
+    
+    logger.debug('Dati fattura ricevuti', {
       hasLines: !!invoiceData.lines,
       linesCount: invoiceData.lines ? invoiceData.lines.length : 0,
-      linesType: Array.isArray(invoiceData.lines) ? 'array' : typeof invoiceData.lines
+      linesType: Array.isArray(invoiceData.lines) ? 'array' : typeof invoiceData.lines,
+      supplierId,
+      tenantId
     });
     
     if (!invoiceData.lines || !Array.isArray(invoiceData.lines)) {
-      console.log('Nessuna linea di prodotto trovata nella fattura o formato non valido');
+      // ✅ MIGRATO DA console.log
+      logger.warn('Nessuna linea prodotto valida trovata', {
+        hasLines: !!invoiceData.lines,
+        linesType: typeof invoiceData.lines,
+        invoiceId,
+        supplierId
+      });
       return [];
     }
 
@@ -42,16 +59,28 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
 
     for (let i = 0; i < invoiceData.lines.length; i++) {
       const line = invoiceData.lines[i];
-      console.log(`Processando linea ${i + 1}/${invoiceData.lines.length}:`, {
+      
+      // ✅ MIGRATO DA console.log
+      logger.debug('Processamento linea fattura', {
+        lineIndex: i + 1,
+        totalLines: invoiceData.lines.length,
         numeroLinea: line.numeroLinea,
         descrizione: line.descrizione,
         quantita: line.quantita,
         prezzoUnitario: line.prezzoUnitario,
-        uM: line.uM
+        uM: line.uM,
+        supplierId,
+        tenantId
       });
       
       if (!line.descrizione || line.descrizione.trim() === '') {
-        console.log(`Saltata linea ${i + 1} senza descrizione: ${JSON.stringify(line)}`);
+        // ✅ MIGRATO DA console.log
+        logger.debug('Linea saltata - descrizione mancante', {
+          lineIndex: i + 1,
+          numeroLinea: line.numeroLinea,
+          lineData: line,
+          supplierId
+        });
         continue;
       }
 
@@ -157,7 +186,13 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
               null // addedBy - sistema automatico
             );
           } catch (descError) {
-            console.warn(`Errore nell'aggiunta descrizione alternativa per prodotto ${bestMatch._id}:`, descError.message);
+            // ✅ MIGRATO DA console.warn
+            logger.warn('Errore aggiunta descrizione alternativa', {
+              productId: bestMatch._id,
+              error: descError.message,
+              descrizione: line.descrizione,
+              supplierId
+            });
           }
           
           importResults.push({
@@ -171,9 +206,29 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
             status: productMatchingStatus
           });
           
-          console.log(`Nuovo prezzo aggiunto al prodotto: ${line.descrizione} - Supplier: ${invoiceData.fornitore.name} - Prezzo: ${line.prezzoUnitario}`);
+          // ✅ MIGRATO DA console.log
+          logger.info('Prezzo aggiunto a prodotto esistente', {
+            productId: bestMatch._id,
+            descrizione: line.descrizione,
+            supplier: invoiceData.fornitore.name,
+            prezzo: line.prezzoUnitario,
+            matchConfidence,
+            matchingMethod,
+            supplierId,
+            tenantId
+          });
         } catch (error) {
-          console.error(`Errore nell'aggiornamento del prodotto ${line.descrizione}:`, error);
+          // ✅ MIGRATO DA console.error
+          logger.error('Errore aggiornamento prodotto esistente', {
+            descrizione: line.descrizione,
+            productId: bestMatch._id,
+            error: error.message,
+            stack: error.stack,
+            supplierId,
+            tenantId,
+            numeroLinea: line.numeroLinea
+          });
+          
           importResults.push({
             action: 'error',
             description: line.descrizione,
@@ -198,7 +253,16 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
           }
         });
         
-        console.log(`Prodotto richiede revisione manuale: ${line.descrizione} - Match: ${bestMatch.description} - Confidence: ${matchConfidence}`);
+        // ✅ MIGRATO DA console.log
+        logger.info('Prodotto richiede revisione manuale', {
+          descrizione: line.descrizione,
+          matchedProduct: bestMatch.description,
+          matchConfidence,
+          matchingMethod,
+          supplierId,
+          tenantId,
+          numeroLinea: line.numeroLinea
+        });
       } else if (!bestMatch && !requiresReview) {
         // Nuovo prodotto - creazione automatica (Phase 2 disabled o auto-approve)
         const codeInternal = `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -249,7 +313,16 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
           );
           
           await newProduct.save();
-          console.log(`Prodotto salvato con codeInternal: ${newProduct.codeInternal}`);
+          
+          // ✅ MIGRATO DA console.log
+          logger.debug('Nuovo prodotto salvato', {
+            productId: newProduct._id,
+            codeInternal: newProduct.codeInternal,
+            descrizione: line.descrizione,
+            supplierId,
+            tenantId,
+            numeroLinea: line.numeroLinea
+          });
           
           // Aggiorna il lineItem nella fattura
           const updateResult = await Invoice.updateOne(
@@ -266,18 +339,36 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
             }
           );
           
-          console.log(`Update result for line ${line.numeroLinea}:`, {
+          // ✅ MIGRATO DA console.log
+          logger.debug('Aggiornamento lineItem fattura', {
+            numeroLinea: line.numeroLinea,
             matchedCount: updateResult.matchedCount,
             modifiedCount: updateResult.modifiedCount,
             productId: newProduct._id,
             codeInternal: newProduct.codeInternal,
-            productMatchingStatus: productMatchingStatus
+            productMatchingStatus: productMatchingStatus,
+            supplierId,
+            tenantId
           });
           
           if (updateResult.matchedCount === 0) {
-            console.error(`ERRORE: Nessun lineItem trovato per numeroLinea: ${line.numeroLinea}`);
+            // ✅ MIGRATO DA console.error
+            logger.error('LineItem non trovato per aggiornamento', {
+              numeroLinea: line.numeroLinea,
+              invoiceId,
+              productId: newProduct._id,
+              supplierId,
+              tenantId
+            });
           } else if (updateResult.modifiedCount === 0) {
-            console.error(`ERRORE: LineItem trovato ma non modificato per numeroLinea: ${line.numeroLinea}`);
+            // ✅ MIGRATO DA console.error
+            logger.error('LineItem trovato ma non modificato', {
+              numeroLinea: line.numeroLinea,
+              invoiceId,
+              productId: newProduct._id,
+              supplierId,
+              tenantId
+            });
           }
           
           importResults.push({
@@ -289,13 +380,38 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
             status: productMatchingStatus
           });
           
-          console.log(`Nuovo prodotto creato: ${line.descrizione} - Supplier: ${invoiceData.fornitore.name} - Linea: ${line.numeroLinea}`);
+          // ✅ MIGRATO DA console.log
+          logger.info('Nuovo prodotto creato con successo', {
+            productId: newProduct._id,
+            descrizione: line.descrizione,
+            supplier: invoiceData.fornitore.name,
+            numeroLinea: line.numeroLinea,
+            codeInternal: newProduct.codeInternal,
+            supplierId,
+            tenantId
+          });
         } catch (createError) {
-          console.error(`Errore nella creazione del prodotto per la linea ${line.numeroLinea}:`, createError.message);
+          // ✅ MIGRATO DA console.error
+          logger.error('Errore creazione nuovo prodotto', {
+            numeroLinea: line.numeroLinea,
+            descrizione: line.descrizione,
+            error: createError.message,
+            stack: createError.stack,
+            supplierId,
+            tenantId
+          });
           
           // Se è un errore di chiave duplicata, prova con un nuovo codice interno
           if (createError.code === 11000) {
-            console.log(`Tentativo di creazione con nuovo codice interno per la linea ${line.numeroLinea}`);
+            // ✅ MIGRATO DA console.log
+            logger.warn('Tentativo retry creazione prodotto per duplicato', {
+              numeroLinea: line.numeroLinea,
+              descrizione: line.descrizione,
+              originalError: createError.message,
+              supplierId,
+              tenantId
+            });
+            
             const newCodeInternal = `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 12)}-${line.numeroLinea}`;
             
             try {
@@ -344,7 +460,15 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
                );
                
                await retryProduct.save();
-               console.log(`Prodotto salvato con codeInternal: ${retryProduct.codeInternal}`);
+               
+               // ✅ MIGRATO DA console.log
+               logger.debug('Prodotto retry salvato', {
+                 productId: retryProduct._id,
+                 codeInternal: retryProduct.codeInternal,
+                 numeroLinea: line.numeroLinea,
+                 supplierId,
+                 tenantId
+               });
                
                // Aggiorna il lineItem nella fattura
                const retryUpdateResult = await Invoice.updateOne(
@@ -361,18 +485,35 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
                  }
                );
                
-               console.log(`Retry update result for line ${line.numeroLinea}:`, {
+               // ✅ MIGRATO DA console.log
+               logger.debug('Aggiornamento lineItem retry', {
+                 numeroLinea: line.numeroLinea,
                  matchedCount: retryUpdateResult.matchedCount,
                  modifiedCount: retryUpdateResult.modifiedCount,
                  productId: retryProduct._id,
                  codeInternal: retryProduct.codeInternal,
-                 productMatchingStatus: productMatchingStatus
+                 supplierId,
+                 tenantId
                });
                
                if (retryUpdateResult.matchedCount === 0) {
-                 console.error(`ERRORE: Nessun lineItem trovato per numeroLinea: ${line.numeroLinea}`);
+                 // ✅ MIGRATO DA console.error
+                 logger.error('LineItem non trovato per retry', {
+                   numeroLinea: line.numeroLinea,
+                   invoiceId,
+                   productId: retryProduct._id,
+                   supplierId,
+                   tenantId
+                 });
                } else if (retryUpdateResult.modifiedCount === 0) {
-                 console.error(`ERRORE: LineItem trovato ma non modificato per numeroLinea: ${line.numeroLinea}`);
+                 // ✅ MIGRATO DA console.error
+                 logger.error('LineItem trovato ma non modificato in retry', {
+                   numeroLinea: line.numeroLinea,
+                   invoiceId,
+                   productId: retryProduct._id,
+                   supplierId,
+                   tenantId
+                 });
                }
               
               importResults.push({
@@ -383,9 +524,25 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
                 lineNumber: line.numeroLinea
               });
               
-              console.log(`Prodotto creato con successo al secondo tentativo: ${line.descrizione} - Linea: ${line.numeroLinea}`);
+              // ✅ MIGRATO DA console.log
+              logger.info('Prodotto creato con successo al retry', {
+                productId: retryProduct._id,
+                descrizione: line.descrizione,
+                numeroLinea: line.numeroLinea,
+                codeInternal: retryProduct.codeInternal,
+                supplierId,
+                tenantId
+              });
             } catch (retryError) {
-              console.error(`Errore anche al secondo tentativo per la linea ${line.numeroLinea}:`, retryError.message);
+              // ✅ MIGRATO DA console.error
+              logger.error('Errore anche al secondo tentativo', {
+                numeroLinea: line.numeroLinea,
+                descrizione: line.descrizione,
+                error: retryError.message,
+                stack: retryError.stack,
+                supplierId,
+                tenantId
+              });
               importResults.push({
                 action: 'error',
                 error: retryError.message,
@@ -417,23 +574,43 @@ const importProductsFromInvoice = async (invoiceData, supplierId, tenantId, invo
           productCode: line.codiceArticolo || null
         });
         
-        console.log(`Nuovo prodotto richiede approvazione: ${line.descrizione} - Supplier: ${invoiceData.fornitore.name}`);
+        // ✅ MIGRATO DA console.log
+        logger.info('Nuovo prodotto richiede approvazione', {
+          descrizione: line.descrizione,
+          supplier: invoiceData.fornitore.name,
+          numeroLinea: line.numeroLinea,
+          supplierId,
+          tenantId
+        });
       }
     }
 
-    console.log(`Importazione completata. Risultati:`, {
-      totaleLinee: invoiceData.lines.length,
-      prodottiCreati: importResults.filter(r => r.action === 'created').length,
-      prodottiAggiornati: importResults.filter(r => r.action === 'updated').length,
-      prezziAggiornati: importResults.filter(r => r.action === 'price_updated').length,
-      duplicatiRilevati: importResults.filter(r => r.action === 'duplicate').length,
-      dettagli: importResults
+    // ✅ MIGRATO DA console.log finale
+    logger.info('Importazione prodotti completata', {
+      supplierId,
+      tenantId,
+      invoiceId,
+      totalProcessed: invoiceData.lines.length,
+      resultsCount: importResults.length,
+      summary: {
+        created: importResults.filter(r => r.action === 'created').length,
+        priceAdded: importResults.filter(r => r.action === 'price_added').length,
+        pendingReview: importResults.filter(r => r.action === 'pending_review').length,
+        pendingNewProduct: importResults.filter(r => r.action === 'pending_new_product_review').length,
+        errors: importResults.filter(r => r.action === 'error').length
+      }
     });
 
     return importResults;
   } catch (error) {
-    console.error('Errore durante l\'importazione automatica dei prodotti:', error);
-    console.error('Stack trace:', error.stack);
+    // ✅ MIGRATO DA console.error
+    logger.error('Errore durante importazione automatica prodotti', {
+      error: error.message,
+      stack: error.stack,
+      supplierId,
+      tenantId,
+      invoiceId
+    });
     // Non blocchiamo il caricamento della fattura per errori nell'importazione prodotti
     return [];
   }
@@ -467,7 +644,14 @@ const findOrCreateSupplier = async (supplierData, tenantId) => {
         iscrizioneREA: supplierData.iscrizioneREA,
         contatti: supplierData.contatti
       });
-      console.log(`Nuovo supplier creato: ${supplier.name} (ID: ${supplier._id})`);
+      
+      // ✅ MIGRATO DA console.log
+      logger.info('Nuovo supplier creato', {
+        supplierId: supplier._id,
+        supplierName: supplier.name,
+        tenantId,
+        pIva: supplier.pIva
+      });
     } else {
       // Aggiorna i dati del supplier esistente se necessario
       let needsUpdate = false;
@@ -485,15 +669,37 @@ const findOrCreateSupplier = async (supplierData, tenantId) => {
       
       if (needsUpdate) {
         supplier = await Supplier.findByIdAndUpdate(supplier._id, updateData, { new: true });
-        console.log(`Supplier aggiornato con nuovi dati: ${supplier.name} (ID: ${supplier._id})`);
+        
+        // ✅ MIGRATO DA console.log
+        logger.info('Supplier aggiornato con nuovi dati', {
+          supplierId: supplier._id,
+          supplierName: supplier.name,
+          tenantId,
+          updateFields: Object.keys(updateData)
+        });
       } else {
-        console.log(`Supplier esistente trovato: ${supplier.name} (ID: ${supplier._id})`);
+        // ✅ MIGRATO DA console.log
+        logger.debug('Supplier esistente trovato', {
+          supplierId: supplier._id,
+          supplierName: supplier.name,
+          tenantId,
+          pIva: supplier.pIva
+        });
       }
     }
 
     return supplier;
   } catch (error) {
-    console.error('Errore nella gestione del supplier:', error);
+    // ✅ MIGRATO DA console.error
+    logger.error('Errore nella gestione del supplier', {
+      error: error.message,
+      stack: error.stack,
+      tenantId,
+      supplierData: {
+        name: supplierData?.name,
+        pIva: supplierData?.pIva
+      }
+    });
     throw new Error(`Errore nella gestione del supplier: ${error.message}`);
   }
 };
@@ -513,8 +719,12 @@ function get(obj, path, name) {
   for (let p of parts) {
     cur = cur?.[p];
     if (cur == null) {
-      // Log dell'errore invece di lanciare eccezione
-      console.warn(`Campo mancante: ${path} (${name})`);
+      // ✅ MIGRATO DA console.warn
+      logger.warn('Campo mancante durante parsing fattura', {
+        path,
+        fieldName: name,
+        context: 'parseBody'
+      });
       return null; // Restituisce null invece di lanciare errore
     }
   }
@@ -523,24 +733,22 @@ function get(obj, path, name) {
 
 // parsing di una singola FatturaElettronicaBody
 function parseBody(body, header) {
-  // Debug: log della struttura del body per identificare problemi
-  console.log('Struttura body:', JSON.stringify(Object.keys(body), null, 2));
+  // ✅ MIGRATO DA console.log - Debug struttura
+  logger.debug('Parsing body fattura', {
+    bodyKeys: Object.keys(body),
+    hasDatiGenerali: !!body.DatiGenerali,
+    datiGeneraliKeys: body.DatiGenerali ? Object.keys(body.DatiGenerali) : null
+  });
   
-  // Debug per i campi principali
-  if (body.DatiGenerali) {
-    console.log('Struttura DatiGenerali:', JSON.stringify(Object.keys(body.DatiGenerali), null, 2));
-  }
-  
-  // Debug per header e CedentePrestatore
+  // ✅ MIGRATO DA console.log - Debug header
   if (header) {
-    console.log('Struttura header:', JSON.stringify(Object.keys(header), null, 2));
-    if (header.CedentePrestatore) {
-      console.log('Struttura CedentePrestatore (da header):', JSON.stringify(Object.keys(header.CedentePrestatore), null, 2));
-    } else {
-      console.log('ATTENZIONE: CedentePrestatore non trovato nell\'header');
-    }
+    logger.debug('Parsing header fattura', {
+      headerKeys: Object.keys(header),
+      hasCedentePrestatore: !!header.CedentePrestatore,
+      cedenteKeys: header.CedentePrestatore ? Object.keys(header.CedentePrestatore) : null
+    });
   } else {
-    console.log('ATTENZIONE: Header non fornito');
+    logger.warn('Header non fornito per parsing fattura');
   }
   
   // Estrazione dati di trasmissione
@@ -588,11 +796,13 @@ function parseBody(body, header) {
       throw new Error('CedentePrestatore non trovato nell\'header del documento');
     }
     
-    // Debug per DatiAnagrafici
+    // ✅ MIGRATO DA console.log - Debug DatiAnagrafici
     if (header.CedentePrestatore.DatiAnagrafici) {
-      console.log('DatiAnagrafici trovato nell\'header:', JSON.stringify(Object.keys(header.CedentePrestatore.DatiAnagrafici), null, 2));
+      logger.debug('DatiAnagrafici trovato', {
+        datiAnagraficiKeys: Object.keys(header.CedentePrestatore.DatiAnagrafici)
+      });
     } else {
-      console.log('ATTENZIONE: DatiAnagrafici non trovato in CedentePrestatore dell\'header');
+      logger.warn('DatiAnagrafici non trovato in CedentePrestatore');
     }
     
     const ced = get(header, 'CedentePrestatore.DatiAnagrafici', 'CedentePrestatore.DatiAnagrafici');
@@ -625,7 +835,14 @@ function parseBody(body, header) {
       }
     };
   } catch (error) {
-    console.error('Errore durante l\'estrazione dei dati CedentePrestatore:', error.message);
+    // ✅ SOSTITUITO: console.error con logger.error
+    logger.error('Errore durante estrazione dati CedentePrestatore', {
+      error: error.message,
+      stack: error.stack,
+      context: 'parseBody',
+      hasHeader: !!header,
+      hasCedentePrestatore: !!(header?.CedentePrestatore)
+    });
     throw new Error(`Errore nei dati del fornitore: ${error.message}`);
   }
 
@@ -650,7 +867,13 @@ function parseBody(body, header) {
 
   // Lines
   const rawLines = body.DatiBeniServizi?.DettaglioLinee;
-  console.log('Raw lines from XML:', JSON.stringify(rawLines, null, 2));
+  
+  // ✅ MIGRATO DA console.log
+  logger.debug('Estrazione linee fattura', {
+    hasRawLines: !!rawLines,
+    rawLinesType: Array.isArray(rawLines) ? 'array' : typeof rawLines,
+    rawLinesLength: Array.isArray(rawLines) ? rawLines.length : (rawLines ? 1 : 0)
+  });
   
   // Gestione corretta di array vs singolo elemento
   let linesArray = [];
@@ -662,7 +885,11 @@ function parseBody(body, header) {
     }
   }
   
-  console.log(`Numero di linee estratte: ${linesArray.length}`);
+  // ✅ MIGRATO DA console.log
+  logger.debug('Linee fattura estratte', {
+    linesCount: linesArray.length,
+    hasValidLines: linesArray.length > 0
+  });
   
   const lines = linesArray.filter(l => l).map((l, idx) => ({
     numeroLinea: get(l, 'NumeroLinea') || idx + 1,
@@ -835,8 +1062,13 @@ export const uploadInvoice = async (req, res) => {
     const xml = buffer.toString('utf8');
     const doc = await parser.parseStringPromise(xml);
     
-    // Debug: log della struttura del documento parsato
-    console.log('Struttura documento parsato:', JSON.stringify(Object.keys(doc), null, 2));
+    // ✅ SOSTITUITO: console.log con logger.debug
+    logger.debug('Struttura documento XML parsato', {
+      docKeys: Object.keys(doc),
+      tenantId,
+      filename: originalname,
+      context: 'uploadInvoice'
+    });
     
     // Gestione robusta dei namespace - cerca FatturaElettronica con o senza namespace
     let fatturaElettronica = doc.FatturaElettronica;
@@ -846,7 +1078,13 @@ export const uploadInvoice = async (req, res) => {
       const fatturaKey = keys.find(key => key.includes('FatturaElettronica'));
       if (fatturaKey) {
         fatturaElettronica = doc[fatturaKey];
-        console.log(`Trovato elemento fattura con chiave: ${fatturaKey}`);
+        
+        // ✅ MIGRATO DA console.log
+        logger.debug('Elemento fattura trovato con namespace', {
+          fatturaKey,
+          tenantId,
+          originalname
+        });
       }
     }
     
@@ -858,8 +1096,13 @@ export const uploadInvoice = async (req, res) => {
     const arrBodies = Array.isArray(bodies) ? bodies : [bodies];
     const header = fatturaElettronica.FatturaElettronicaHeader;
     
-    // Debug: verifica presenza header
+    // ✅ MIGRATO DA console.log - Debug header
     if (!header) {
+      logger.error('FatturaElettronicaHeader mancante', {
+        tenantId,
+        originalname,
+        docKeys: Object.keys(doc)
+      });
       throw new Error('FatturaElettronicaHeader non trovato nel documento');
     }
 
@@ -872,12 +1115,23 @@ export const uploadInvoice = async (req, res) => {
       const cfMatches = inv.cliente.codiceFiscale && inv.cliente.codiceFiscale === tenant.codiceFiscale;
       
       if (!pivaMatches && !cfMatches) {
-        console.log('=== DEBUG CONFRONTO TENANT ===');
-        console.log('Tenant nel DB:', { vatNumber: tenant.vatNumber, codiceFiscale: tenant.codiceFiscale });
-        console.log('Cliente dalla fattura:', { pIva: inv.cliente.pIva, codiceFiscale: inv.cliente.codiceFiscale });
-        console.log('P.IVA corrisponde:', pivaMatches);
-        console.log('C.F. corrisponde:', cfMatches);
-        console.log('==============================');
+        // ✅ MIGRATO DA console.log
+        logger.warn('Dati cliente non corrispondono al tenant', {
+          tenantId,
+          invoiceIndex: i,
+          tenant: {
+            vatNumber: tenant.vatNumber,
+            codiceFiscale: tenant.codiceFiscale
+          },
+          clienteFattura: {
+            pIva: inv.cliente.pIva,
+            codiceFiscale: inv.cliente.codiceFiscale
+          },
+          matches: {
+            pivaMatches,
+            cfMatches
+          }
+        });
         
         return res.status(400).json({
           error: 'Dati cliente P.IVA o C.F. non corrispondono ai dati del tenant',
@@ -1011,7 +1265,14 @@ export const uploadInvoice = async (req, res) => {
 
     return res.status(201).json({ invoices: saved });
   } catch (err) {
-    console.error('uploadInvoice error', err);
+    // ✅ MIGRATO DA console.error
+    logger.error('Errore upload fattura', {
+      error: err.message,
+      stack: err.stack,
+      tenantId: req.user?.tenantId,
+      originalname: req.file?.originalname,
+      mimetype: req.file?.mimetype
+    });
     let status = 500;
     let errorMessage = 'Errore interno del server durante il caricamento della fattura.';
 
@@ -1138,7 +1399,13 @@ export const getInvoices = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error in getInvoices:', error);
+    // ✅ MIGRATO DA console.error
+    logger.error('Errore recupero lista fatture', {
+      error: error.message,
+      stack: error.stack,
+      tenantId: req.user?.tenantId,
+      query: req.query
+    });
     res.status(500).json({ error: 'Errore nel recupero delle fatture' });
   }
 };
@@ -1167,7 +1434,13 @@ export const getInvoiceDetails = async (req, res) => {
 
     res.json(invoice);
   } catch (error) {
-    console.error('Error in getInvoiceDetails:', error);
+    // ✅ MIGRATO DA console.error
+    logger.error('Errore recupero dettagli fattura', {
+      error: error.message,
+      stack: error.stack,
+      tenantId: req.user?.tenantId,
+      invoiceId: req.params?.id
+    });
     res.status(500).json({ error: 'Errore nel recupero dei dettagli della fattura' });
   }
 };
@@ -1236,7 +1509,13 @@ export const getInvoicesStats = async (req, res) => {
       monthlyTrend
     });
   } catch (error) {
-    console.error('Error in getInvoicesStats:', error);
+    // ✅ MIGRATO DA console.error
+    logger.error('Errore recupero statistiche fatture', {
+      error: error.message,
+      stack: error.stack,
+      tenantId: req.user?.tenantId,
+      query: req.query
+    });
     res.status(500).json({ error: 'Errore nel recupero delle statistiche' });
   }
 };

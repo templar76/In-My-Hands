@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "audit": "npm audit",
+    "audit-fix": "npm audit fix",
+    "security-check": "npm audit --audit-level moderate",
+    "security-full": "npm audit --audit-level low",
+    "deps-update": "npm update && npm audit"
   },
   "keywords": [],
   "author": "",
@@ -14,22 +19,40 @@
   "description": "",
   "dependencies": {
     "@google-cloud/storage": "^7.16.0",
+    "compression": "^1.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
-    "express": "^5.1.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "6.10.0",
     "express-validator": "^7.2.1",
     "firebase-admin": "^13.3.0",
     "fuse.js": "^7.1.0",
     "fuzzysort": "^3.1.0",
+    "helmet": "^8.0.0",
     "mongoose": "^8.14.1",
     "multer": "^2.0.0",
     "node-cron": "^4.0.5",
     "nodemailer": "^7.0.2",
     "pdf-parse": "^1.1.1",
     "uuid": "^11.1.0",
+    "winston": "^3.17.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
+  },
+  "overrides": {
+    "braces": "^3.0.3",
+    "semver": "^7.5.4",
+    "cross-spawn": "^7.0.3",
+    "decompress": "^4.2.1",
+    "got": "^12.6.1",
+    "http-cache-semantics": "^4.1.1",
+    "lodash.template": "^4.5.0",
+    "semver-regex": "^4.0.5",
+    "trim-newlines": "^4.0.2",
+    "tunnel-agent": "^0.6.0",
+    "imagemin-mozjpeg": "^10.0.0",
+    "imagemin-pngquant": "^9.0.2"
   }
 }

@@ -1,4 +1,5 @@
 import Tenant from '../models/Tenant.js';
+import logger from '../utils/logger.js';
 
 /**
  * Middleware per caricare e verificare la configurazione del product matching del tenant
@@ -35,7 +36,13 @@ export const loadTenantConfig = async (req, res, next) => {
     req.tenant = tenant;
     next();
   } catch (error) {
-    console.error('Errore nel caricamento configurazione tenant:', error);
+    logger.error('Errore nel caricamento configurazione tenant', {
+      error: error.message,
+      stack: error.stack,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.uid,
+      middleware: 'loadTenantConfig'
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };

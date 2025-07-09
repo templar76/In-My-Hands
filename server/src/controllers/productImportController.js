@@ -2,6 +2,7 @@ import Product from '../models/Product.js';
 import ProductMatchingService from '../services/productMatchingService.js';
 import { loadTenantConfig } from '../middleware/tenantConfig.js';
 import mongoose from 'mongoose';
+import logger from '../utils/logger.js';
 
 /**
  * POST /api/products/import
@@ -201,7 +202,7 @@ export const importProducts = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (err) {
-    console.error('importProducts error', err);
+    logger.error('importProducts error', { error: err.message, stack: err.stack, tenantId: req.user?.tenantId });
     return res.status(500).json({ error: 'Errore durante import prodotti' });
   }
 };
@@ -218,13 +219,13 @@ const generateUniqueCode = async (tenantId) => {
  */
 export const getProductInsights = async (req, res) => {
   try {
-    console.log('getProductInsights called for tenantId:', req.user.tenantId);
+    logger.info('getProductInsights called', { tenantId: req.user.tenantId });
     const tenantId = req.user.tenantId;
     const { timeframe = '30d' } = req.query;
     
     // Validate and convert tenantId to ObjectId
     if (!tenantId) {
-      console.error('TenantId missing from request');
+      logger.error('TenantId missing from request');
       return res.status(400).json({ error: 'TenantId is required' });
     }
     
@@ -232,11 +233,11 @@ export const getProductInsights = async (req, res) => {
     try {
       tenantObjectId = new mongoose.Types.ObjectId(tenantId);
     } catch (err) {
-      console.error('Invalid tenantId format:', tenantId, err);
+      logger.error('Invalid tenantId format', { tenantId, error: err.message });
       return res.status(400).json({ error: 'Invalid tenantId format' });
     }
     
-    console.log('Using tenantObjectId:', tenantObjectId);
+    logger.debug('Using tenantObjectId', { tenantObjectId });
     
     // Calcola la data di inizio basata sul timeframe
     const startDate = new Date();
@@ -254,16 +255,16 @@ export const getProductInsights = async (req, res) => {
         startDate.setDate(startDate.getDate() - 30);
     }
 
-    console.log('Fetching total products...');
+    logger.debug('Fetching total products...');
     // Usa tenantObjectId invece di tenantId nelle query
     const totalProducts = await Product.countDocuments({ tenantId: tenantObjectId });
-    console.log('Total products:', totalProducts);
+    logger.debug('Total products', { count: totalProducts });
     
     const recentProducts = await Product.countDocuments({ 
       tenantId: tenantObjectId, 
       createdAt: { $gte: startDate } 
     });
-    console.log('Recent products:', recentProducts);
+    logger.debug('Recent products', { count: recentProducts });
     
     // Continua con il resto delle query usando tenantObjectId...
     
@@ -362,7 +363,7 @@ export const getProductInsights = async (req, res) => {
 
     return res.status(200).json(insights);
   } catch (err) {
-    console.error('getProductInsights error details:', {
+    logger.error('getProductInsights error details', {
       message: err.message,
       stack: err.stack,
       tenantId: req.user?.tenantId

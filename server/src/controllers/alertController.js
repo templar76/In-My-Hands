@@ -1,7 +1,8 @@
 import Alert from '../models/Alert.js';
 import Product from '../models/Product.js';
-import User from '../models/User.js'; // ⭐ AGGIUNTO
+import User from '../models/User.js';
 import mongoose from 'mongoose';
+import logger from '../utils/logger.js';
 
 // Crea un nuovo alert
 // Rimuovi l'import di User (non più necessario)
@@ -67,7 +68,14 @@ export const createAlert = async (req, res) => {
       alert
     });
   } catch (error) {
-    console.error('Errore nella creazione dell\'alert:', error);
+    logger.error('Errore nella creazione dell\'alert', {
+      tenantId: req.user?.tenantId,
+      userId: req.user?.uid,
+      productId: req.body?.productId,
+      alertType: req.body?.type,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -86,15 +94,16 @@ export const getUserAlerts = async (req, res) => {
 
     const filter = {
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: req.user.uid // ⭐ Usa direttamente Firebase UID
+      userId: req.user.uid
     };
 
-    console.log('🔍 Alert filter:', {
+    // ✅ SOSTITUITO: console.log con logger.debug
+    logger.debug('Alert filter applied', {
       tenantId: tenantId,
-      userId: req.user.uid, // ⭐ Usa Firebase UID invece di user._id
+      userId: req.user.uid,
       userObject: req.user
     });
-    console.log('🔍 MongoDB filter:', filter);
+    logger.debug('MongoDB filter constructed', { filter });
 
     if (isActive !== undefined) {
       filter.isActive = isActive === 'true';
@@ -109,8 +118,11 @@ export const getUserAlerts = async (req, res) => {
     }
 
     const allTenantAlerts = await Alert.find({ tenantId: new mongoose.Types.ObjectId(tenantId) });
-    console.log('🔍 All tenant alerts:', allTenantAlerts.length);
-    console.log('🔍 Alert userIds:', allTenantAlerts.map(a => ({ id: a._id, userId: a.userId })));
+    // ✅ SOSTITUITO: console.log con logger.debug
+    logger.debug('Tenant alerts analysis', {
+      totalTenantAlerts: allTenantAlerts.length,
+      alertUserIds: allTenantAlerts.map(a => ({ id: a._id, userId: a.userId }))
+    });
 
     const alerts = await Alert.find(filter)
       // Nella funzione getUserAlerts, modifica la riga del populate da:
@@ -124,7 +136,8 @@ export const getUserAlerts = async (req, res) => {
 
     const total = await Alert.countDocuments(filter);
 
-    console.log('🔍 Found alerts:', alerts.length);
+    // ✅ SOSTITUITO: console.log con logger.debug
+    logger.debug('Alerts retrieved successfully', { alertsFound: alerts.length });
 
     res.json({
       alerts,
@@ -133,7 +146,13 @@ export const getUserAlerts = async (req, res) => {
       total
     });
   } catch (error) {
-    console.error('Errore nel recupero degli alert:', error);
+    // ✅ SOSTITUITO: console.error con logger.error
+    logger.error('Error retrieving alerts', {
+      error: error.message,
+      stack: error.stack,
+      tenantId: req.user?.tenantId,
+      userId: req.user?.uid
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -176,7 +195,14 @@ export const updateAlert = async (req, res) => {
       alert
     });
   } catch (error) {
-    console.error('Errore nell\'aggiornamento dell\'alert:', error);
+    logger.error('Errore nell\'aggiornamento dell\'alert', {
+      tenantId: req.user?.tenantId,
+      userId: req.user?.uid,
+      alertId: req.params?.alertId,
+      updates: req.body,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -211,7 +237,13 @@ export const toggleAlert = async (req, res) => {
       alert
     });
   } catch (error) {
-    console.error('Errore nel toggle dell\'alert:', error);
+    logger.error('Errore nel toggle dell\'alert', {
+      tenantId: req.user?.tenantId,
+      userId: req.user?.uid,
+      alertId: req.params?.alertId,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -234,7 +266,13 @@ export const deleteAlert = async (req, res) => {
 
     res.json({ message: 'Alert eliminato con successo' });
   } catch (error) {
-    console.error('Errore nell\'eliminazione dell\'alert:', error);
+    logger.error('Errore nell\'eliminazione dell\'alert', {
+      tenantId: req.user?.tenantId,
+      userId: req.user?.uid,
+      alertId: req.params?.alertId,
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };
@@ -242,11 +280,12 @@ export const deleteAlert = async (req, res) => {
 // Testa un alert
 export const testAlert = async (req, res) => {
   try {
-    console.log('🧪 testAlert - Input:', {
+    // ✅ SOSTITUITO: console.log con logger.debug
+    logger.debug('Testing alert', {
       alertId: req.params.alertId,
       tenantId: req.user.tenantId,
       userId: req.user.uid,
-      body: req.body
+      testData: req.body
     });
     
     const { tenantId } = req.user;
@@ -275,7 +314,13 @@ export const testAlert = async (req, res) => {
       alertType: alert.type
     });
   } catch (error) {
-    console.error('Errore nel test dell\'alert:', error);
+    // ✅ SOSTITUITO: console.error con logger.error
+    logger.error('Error testing alert', {
+      error: error.message,
+      stack: error.stack,
+      alertId: req.params.alertId,
+      tenantId: req.user?.tenantId
+    });
     res.status(500).json({ error: 'Errore interno del server' });
   }
 };

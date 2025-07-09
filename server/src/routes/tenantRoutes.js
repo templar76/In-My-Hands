@@ -3,6 +3,7 @@ import { registerTenant } from '../controllers/tenantController.js';
 import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
 import { requireTenant } from '../middleware/requireTenant.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
+import logger from '../utils/logger.js';
 import {
  createTenantUser,
  checkExistingUser,
@@ -37,23 +38,45 @@ router.get('/:tenantId', verifyFirebaseToken, requireTenant, async (req, res) =>
 router.post(
   '/:tenantId/users',
   (req, res, next) => {
-    console.log('[tenantRoutes] Before verifyFirebaseToken - req.body:', JSON.stringify(req.body));
+    logger.debug('Inizio creazione utente tenant - richiesta ricevuta', {
+      requestBody: req.body,
+      tenantId: req.params.tenantId,
+      route: 'POST /tenants/:tenantId/users',
+      step: 'before_verifyFirebaseToken'
+    });
     next();
   },
   verifyFirebaseToken,
   (req, res, next) => {
-    console.log('[tenantRoutes] After verifyFirebaseToken, Before requireAdmin - req.body:', JSON.stringify(req.body));
-    console.log('[tenantRoutes] After verifyFirebaseToken, Before requireAdmin - req.user:', JSON.stringify(req.user));
+    logger.debug('Token Firebase verificato - controllo privilegi admin', {
+      requestBody: req.body,
+      user: req.user,
+      tenantId: req.params.tenantId,
+      route: 'POST /tenants/:tenantId/users',
+      step: 'after_verifyFirebaseToken_before_requireAdmin'
+    });
     next();
   },
   requireAdmin,
   (req, res, next) => {
-    console.log('[tenantRoutes] After requireAdmin, Before requireTenant - req.body:', JSON.stringify(req.body));
+    logger.debug('Privilegi admin verificati - controllo appartenenza tenant', {
+      requestBody: req.body,
+      userId: req.user?.uid,
+      tenantId: req.params.tenantId,
+      route: 'POST /tenants/:tenantId/users',
+      step: 'after_requireAdmin_before_requireTenant'
+    });
     next();
   },
   requireTenant,
   (req, res, next) => {
-    console.log('[tenantRoutes] After requireTenant, Before createTenantUser - req.body:', JSON.stringify(req.body));
+    logger.debug('Autorizzazioni verificate - procedura creazione utente', {
+      requestBody: req.body,
+      userId: req.user?.uid,
+      tenantId: req.params.tenantId,
+      route: 'POST /tenants/:tenantId/users',
+      step: 'after_requireTenant_before_createTenantUser'
+    });
     next();
   },
   createTenantUser

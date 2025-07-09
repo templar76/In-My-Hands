@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, TextField, Button, Alert, Grid, Paper, CircularProgress } from '@mui/material';
-import { getApiUrl } from '../utils/apiConfig'; // Importa la funzione helper
+import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 const API_URL = getApiUrl();
 
@@ -76,12 +77,12 @@ const CompleteTenantRegistrationPage = () => {
     }
     setStatus('loading');
     setMessage(null);
-
+  
     const payload = {
       token,
       ...formData,
     };
-
+  
     try {
       const response = await fetch(`${API_URL}/api/auth/complete-tenant-registration`, {
         method: 'POST',
@@ -89,16 +90,25 @@ const CompleteTenantRegistrationPage = () => {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-
+  
       if (!response.ok) {
         throw new Error(data.error || `Errore ${response.status}: ${response.statusText}`);
       }
-
+  
       setStatus('succeeded');
       setMessage({ type: 'success', text: data.message || 'Registrazione completata con successo! Verrai reindirizzato al login.' });
       setTimeout(() => navigate('/login'), 5000);
     } catch (err) {
-      console.error('Complete registration error:', err);
+      ClientLogger.error('Complete registration error', {
+        error: err,
+        token: token ? 'present' : 'missing',
+        formData: {
+          companyName: formData.companyName,
+          companyType: formData.companyType,
+          vatNumber: formData.vatNumber
+        },
+        context: 'CompleteTenantRegistrationPage.handleSubmit'
+      });
       setStatus('failed');
       setMessage({ type: 'error', text: err.message || 'Si è verificato un errore durante il completamento della registrazione.' });
     }

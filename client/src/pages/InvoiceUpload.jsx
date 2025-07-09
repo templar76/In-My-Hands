@@ -11,7 +11,8 @@ import {
   LinearProgress,
   Alert
 } from '@mui/material';
-import { getApiUrl } from '../utils/apiConfig'; // Importa la funzione helper
+import { getApiUrl } from '../utils/apiConfig';
+import ClientLogger from '../utils/ClientLogger';
 
 // Max file size in bytes (e.g. 10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -86,12 +87,23 @@ export default function InvoiceUpload() {
         }
       );
 
-      console.log('File uploaded to:', res.data.path);
+      ClientLogger.info('File uploaded successfully', {
+        filePath: res.data.path,
+        fileName: file.name,
+        fileSize: file.size,
+        context: 'InvoiceUpload.handleUpload'
+      });
       setSuccess('Fattura caricata con successo');
       setFile(null);
       setProgress(0);
     } catch (err) {
-      console.error(err);
+      ClientLogger.error('Invoice upload failed', {
+        error: err,
+        fileName: file?.name,
+        fileSize: file?.size,
+        errorResponse: err.response?.data,
+        context: 'InvoiceUpload.handleUpload'
+      });
       setError(
         err.response?.data?.error ||
         err.message ||

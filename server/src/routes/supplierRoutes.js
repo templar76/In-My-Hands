@@ -61,7 +61,8 @@ router.get('/:id/details', getSupplierDetails);
  * PUT /api/suppliers/:id
  * Aggiorna i dati di un fornitore
  * Params: id (supplierId)
- * Body: dati da aggiornare (esclusi pIva e codiceFiscale)
+ * // Riga 64
+ * Body: dati da aggiornare (esclusi vatNumber e codiceFiscale)  // ✅ Cambiato da pIva
  */
 router.put('/:id', updateSupplier);
 

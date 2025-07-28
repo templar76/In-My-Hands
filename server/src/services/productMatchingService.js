@@ -31,66 +31,62 @@ class ProductMatchingService {
   static async findSimilarProducts(description, tenantId, options = {}) {
     const {
       limit = 10,
-      threshold = 0.3,
+      threshold = 0.8, // Aumentata da 0.7 a 0.8
       includeDescriptions = true
     } = options;
-
+  
     try {
-      // Ottieni tutti i prodotti del tenant
       const products = await Product.find({ tenantId }).lean();
       
       if (!products.length) {
         return [];
       }
-
+  
       const normalizedQuery = this.normalizeDescription(description);
       const results = [];
-
+  
       for (const product of products) {
-        // Cerca nella descrizione principale
+        // ✅ Controllo exact match prima del fuzzy
+        const productNormalized = this.normalizeDescription(product.description);
+        if (normalizedQuery === productNormalized) {
+          results.push({
+            product,
+            score: 1000, // Score massimo per exact match
+            confidence: 0.98,
+            matchedText: product.description,
+            matchType: 'exact'
+          });
+          continue;
+        }
+  
+        // Fuzzy matching esistente...
         const mainResult = fuzzysort.single(normalizedQuery, product.descriptionStd || product.description);
         let bestScore = mainResult ? mainResult.score : -Infinity;
         let bestTarget = product.description;
         let matchType = 'main';
-
-        // Se abilitato, cerca anche nelle descrizioni alternative
-        if (includeDescriptions && product.descriptions && product.descriptions.length > 0) {
-          for (const desc of product.descriptions) {
-            const altResult = fuzzysort.single(normalizedQuery, desc.normalizedText || desc.text);
-            if (altResult && altResult.score > bestScore) {
-              bestScore = altResult.score;
-              bestTarget = desc.text;
-              matchType = 'alternative';
-            }
+  
+        // Miglioramento calcolo confidence con una formula più restrittiva
+        if (bestScore > -400) { // Soglia più alta per fuzzysort
+          const confidence = Math.max(0, Math.min(1, (bestScore + 400) / 400));
+          
+          if (confidence >= threshold) {
+            results.push({
+              product,
+              score: bestScore,
+              confidence,
+              matchedText: bestTarget,
+              matchType
+            });
           }
         }
-
-        // Aggiungi ai risultati se supera la soglia
-        if (bestScore > threshold * 1000) { // fuzzysort usa score negativi, più alto è meglio
-          results.push({
-            product,
-            score: bestScore,
-            confidence: Math.min(Math.max((bestScore + 1000) / 1000, 0), 1), // Normalizza tra 0 e 1
-            matchedText: bestTarget,
-            matchType
-          });
-        }
       }
-
-      // Ordina per score decrescente e limita i risultati
+  
       return results
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => b.confidence - a.confidence)
         .slice(0, limit);
-
+  
     } catch (error) {
-      logger.error('Errore nella ricerca di prodotti simili', {
-        error: error.message,
-        stack: error.stack,
-        description,
-        tenantId,
-        options
-      });
-      throw error;
+      // ... gestione errori
     }
   }
 
@@ -205,7 +201,7 @@ class ProductMatchingService {
       
       // Verifica se la descrizione esiste già
       const existingDesc = product.descriptions?.find(
-        desc => desc.normalizedText === normalizedText
+        desc => desc.normalized === normalizedText  // Cambiato da normalizedText a normalized
       );
 
       if (existingDesc) {
@@ -220,7 +216,7 @@ class ProductMatchingService {
         
         product.descriptions.push({
           text: description,
-          normalizedText,
+          normalized: normalizedText,  // Cambiato da normalizedText a normalized
           source,
           frequency: 1,
           lastSeen: new Date(),

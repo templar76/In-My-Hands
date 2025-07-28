@@ -3,9 +3,11 @@ import mongoose from 'mongoose';
 const tenantSchema = new mongoose.Schema({
   companyType: { type: String, required: true },
   companyName: { type: String, required: true, unique: true },
+  country: { type: String, required: true, default: 'IT' }, // Aggiungiamo il campo country
   vatNumber: { type: String, required: true, unique: true },
   codiceFiscale: { type: String, required: true, unique: true },
   address: { type: String, required: true },
+  plan: { type: String, enum: ['free', 'monthly', 'annual'], default: 'free' },
   contacts: {
     email: { type: String, required: true },
     phone: { type: String, required: true },

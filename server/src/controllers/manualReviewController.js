@@ -193,7 +193,7 @@ export const approveMatch = async (req, res) => {
 
     const supplierData = {
       supplierId: invoice.supplierId,
-      supplierVat: invoice.supplier.pIva,
+      supplierVat: invoice.supplier.vatNumber,  // ✅ Cambiato da pIva
       supplierName: invoice.supplier.name
     };
 

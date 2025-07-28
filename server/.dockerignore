@@ -1,0 +1,14 @@
+node_modules
+logs/*.log
+.git
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+test_*.js
+scripts/
+Dockerfile*
+docker-compose*
+# NON escludere serviceAccountKey.json perché serve in Docker

@@ -9,8 +9,7 @@ const SupplierSchema = new mongoose.Schema({
     index: true
   },
   name: { type: String, required: true },
-  pIva: { type: String, required: true },
-  vatNumber: { type: String, sparse: true },
+  vatNumber: { type: String, required: true }, // Campo corretto per la partita IVA
   codiceFiscale: { type: String },
   pec: { type: String },
   sdiCode: { type: String },
@@ -44,7 +43,7 @@ const SupplierSchema = new mongoose.Schema({
 SupplierSchema.index({ tenantId: 1, codiceFiscale: 1 });
 SupplierSchema.index({ tenantId: 1, name: 1 });
 
-// ✅ INDICE UNICO per pIva PER TENANT (non globale)
-SupplierSchema.index({ tenantId: 1, pIva: 1 }, { unique: true });
+// ✅ INDICE UNICO per vatNumber PER TENANT
+SupplierSchema.index({ tenantId: 1, vatNumber: 1 }, { unique: true });
 
 export default mongoose.model('Supplier', SupplierSchema);

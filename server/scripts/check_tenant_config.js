@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import Tenant from '../src/models/Tenant.js';
 
-dotenv.config();
+dotenv.config({ path: '.env.test' });
 
 async function checkTenantConfig() {
   try {

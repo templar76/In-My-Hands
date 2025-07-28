@@ -3,10 +3,8 @@ import Product from '../models/Product.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 import logger from '../utils/logger.js';
+import { sendAlertEmail } from '../services/emailService.js';
 
-// Crea un nuovo alert
-// Rimuovi l'import di User (non più necessario)
-// import User from '../models/User.js'; // ⭐ RIMUOVI QUESTA RIGA
 
 export const createAlert = async (req, res) => {
   try {
@@ -57,10 +55,6 @@ export const createAlert = async (req, res) => {
     await alert.save();
 
     // Popola i dati per la risposta
-    // Nella funzione createAlert, cambia da:
-    //await alert.populate(['product', 'user']);
-    
-    // A:
     await alert.populate('product');
 
     res.status(201).json({
@@ -86,16 +80,17 @@ export const getUserAlerts = async (req, res) => {
     const { tenantId } = req.user;
     const { page = 1, limit = 10, isActive, type, productId } = req.query;
 
-    // ⭐ CORREZIONE: Trova l'utente nel database usando Firebase UID
-    const user = await User.findOne({ uid: req.user.uid });
-    if (!user) {
-      return res.status(404).json({ error: 'Utente non trovato' });
-    }
+    // DEBUG: Log the user object and tenantId
+    logger.info('getUserAlerts - req.user:', req.user);
+    logger.info('getUserAlerts - tenantId from token:', tenantId);
 
     const filter = {
       tenantId: new mongoose.Types.ObjectId(tenantId),
       userId: req.user.uid
     };
+
+    // DEBUG: Log the filter object
+    logger.info('getUserAlerts - filter object:', filter);
 
     // ✅ SOSTITUITO: console.log con logger.debug
     logger.debug('Alert filter applied', {
@@ -109,7 +104,7 @@ export const getUserAlerts = async (req, res) => {
       filter.isActive = isActive === 'true';
     }
 
-    if (type) {
+    if (type && type !== 'all') {
       filter.type = type;
     }
 
@@ -280,7 +275,6 @@ export const deleteAlert = async (req, res) => {
 // Testa un alert
 export const testAlert = async (req, res) => {
   try {
-    // ✅ SOSTITUITO: console.log con logger.debug
     logger.debug('Testing alert', {
       alertId: req.params.alertId,
       tenantId: req.user.tenantId,
@@ -295,26 +289,76 @@ export const testAlert = async (req, res) => {
     const alert = await Alert.findOne({
       _id: alertId,
       tenantId: new mongoose.Types.ObjectId(tenantId),
-      userId: req.user.uid // ⭐ Usa direttamente Firebase UID
+      userId: req.user.uid
     }).populate('product');
 
     if (!alert) {
       return res.status(404).json({ error: 'Alert non trovato' });
     }
 
-    const shouldTrigger = await alert.shouldTrigger(testPrice, supplierId);
+    const user = await User.findOne({ uid: req.user.uid });
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+
+    // ✅ MIGLIORATO: Recupera dati reali dal database
+    let supplierName = 'Fornitore non specificato';
+    let actualCurrentPrice = 0;
+    
+    if (alert.product && alert.product.prices && alert.product.prices.length > 0) {
+      if (supplierId) {
+        // Se è specificato un fornitore, usa i suoi dati
+        const supplierInfo = alert.product.prices.find(p => p.supplierId.toString() === supplierId);
+        if (supplierInfo) {
+          supplierName = supplierInfo.supplierName || 'Nome fornitore non disponibile';
+          actualCurrentPrice = supplierInfo.currentPrice || 0;
+        }
+      } else {
+        // Se non è specificato un fornitore, usa il primo disponibile o il migliore prezzo
+        const bestPriceInfo = alert.product.getBestPrice();
+        if (bestPriceInfo && bestPriceInfo.supplier) {
+          supplierName = bestPriceInfo.supplier.supplierName || 'Nome fornitore non disponibile';
+          actualCurrentPrice = bestPriceInfo.price ? bestPriceInfo.price.price : 0;
+        } else if (alert.product.prices[0]) {
+          // Fallback al primo fornitore disponibile
+          supplierName = alert.product.prices[0].supplierName || 'Nome fornitore non disponibile';
+          actualCurrentPrice = alert.product.prices[0].currentPrice || 0;
+        }
+      }
+    }
+
+    // Usa il prezzo di test se fornito, altrimenti usa il prezzo reale dal database
+    const emailCurrentPrice = testPrice !== undefined ? testPrice : actualCurrentPrice;
+
+    // Invia una email di test con dati reali
+    await sendAlertEmail({
+      to: user.email,
+      alertType: alert.type,
+      productName: alert.product.description,
+      supplierName: supplierName,
+      currentPrice: emailCurrentPrice,
+      thresholdPrice: alert.thresholdPrice,
+      triggerReason: testPrice !== undefined 
+        ? `Questo è un test manuale del tuo alert con prezzo di test: €${testPrice}.`
+        : `Questo è un test manuale del tuo alert con prezzo reale dal database: €${actualCurrentPrice}.`,
+      productId: alert.product._id
+    });
+
+    const shouldTrigger = await alert.shouldTrigger(emailCurrentPrice, supplierId);
     const avgPrice = await alert.calculateAveragePrice();
 
     res.json({
+      message: 'Email di test inviata con successo!',
       shouldTrigger,
-      testPrice,
+      testPrice: emailCurrentPrice,
+      actualDatabasePrice: actualCurrentPrice,
+      supplierName,
       averagePrice: avgPrice,
       thresholdPrice: alert.thresholdPrice,
       variationThreshold: alert.variationThreshold,
       alertType: alert.type
     });
   } catch (error) {
-    // ✅ SOSTITUITO: console.error con logger.error
     logger.error('Error testing alert', {
       error: error.message,
       stack: error.stack,

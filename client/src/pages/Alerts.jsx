@@ -28,7 +28,8 @@ import {
   Tabs,
   Tab,
   Alert,
-  Pagination
+  Pagination,
+  CircularProgress
 } from '@mui/material';
 import {
   Edit,
@@ -36,10 +37,14 @@ import {
   ToggleOn,
   ToggleOff,
   Schedule,
-  FileDownload
+  FileDownload,
+  Refresh,
+  TrendingUp,
+  NotificationsActive
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../store/authSlice';
 import ClientLogger from '../utils/ClientLogger';
 
 function TabPanel({ children, value, index, ...other }) {
@@ -62,6 +67,7 @@ function TabPanel({ children, value, index, ...other }) {
 
 const Alerts = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.auth);
   
   // Aggiungi questa funzione per la navigazione ai prodotti
@@ -99,9 +105,11 @@ const Alerts = () => {
     isActive: true
   });
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts?page=${page}&limit=${limit}&search=${searchTerm}&type=${filterType}&status=${filterStatus}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -149,10 +157,11 @@ const Alerts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch, page, limit, searchTerm, filterType, filterStatus]);
 
-  const handleToggleAlert = async (alertId, currentStatus) => {
+  const handleToggleAlert = useCallback(async (alertId, currentStatus) => {
     try {
+      const token = await dispatch(getFirebaseToken()).unwrap();
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${alertId}/toggle`, {
         method: 'PATCH',
         headers: {
@@ -177,14 +186,15 @@ const Alerts = () => {
       });
       setError('Errore nell\'aggiornamento dello stato dell\'alert');
     }
-  };
+  }, [dispatch, fetchAlerts]);
 
-  const handleDeleteAlert = async (alertId) => {
+  const handleDeleteAlert = useCallback(async (alertId) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo alert?')) {
       return;
     }
     
     try {
+      const token = await dispatch(getFirebaseToken()).unwrap();
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${alertId}`, {
         method: 'DELETE',
         headers: {
@@ -207,7 +217,7 @@ const Alerts = () => {
       });
       setError('Errore nell\'eliminazione dell\'alert');
     }
-  };
+  }, [dispatch, fetchAlerts]);
 
   const handleEditAlert = (alert) => {
     setSelectedAlert(alert);
@@ -220,9 +230,10 @@ const Alerts = () => {
     setEditDialog(true);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${editFormData._id}`, {
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${selectedAlert._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -252,11 +263,12 @@ const Alerts = () => {
       });
       setError('Errore nell\'aggiornamento dell\'alert');
     }
-  };
+  }, [dispatch, fetchAlerts, selectedAlert, editFormData]);
 
   // Funzione per inviare email di test
-  const handleSendTestEmail = async (alertId) => {
+  const handleSendTestEmail = useCallback(async (alertId) => {
     try {
+      const token = await dispatch(getFirebaseToken()).unwrap();
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/${alertId}/test`, {
         method: 'POST',
         headers: {
@@ -269,7 +281,7 @@ const Alerts = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      alert('Email di test inviata con successo!');
+      setSuccess('Email di test inviata con successo!');
     } catch (error) {
       ClientLogger.error('Error sending test email', {
         component: 'Alerts',
@@ -279,11 +291,12 @@ const Alerts = () => {
       });
       setError('Errore nell\'invio dell\'email di test');
     }
-  };
+  }, [dispatch]);
 
   // Funzione per esportare dati alert
-  const handleExportAlerts = async () => {
+  const handleExportAlerts = useCallback(async () => {
     try {
+      const token = await dispatch(getFirebaseToken()).unwrap();
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/export`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -312,7 +325,7 @@ const Alerts = () => {
       });
       setError('Errore nell\'esportazione degli alert');
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -679,7 +692,7 @@ const Alerts = () => {
                       </TableCell>
                       
                       <TableCell>
-                        {alert.alertType === 'price_threshold' ? ( // Cambiato da alert.alertType a alert.type
+                        {alert.alertType === 'price_threshold' ? ( 
                           <Typography variant="body2">
                             Soglia: {formatCurrency(alert.thresholdPrice)}
                           </Typography>

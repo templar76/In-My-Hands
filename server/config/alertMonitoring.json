@@ -1,0 +1,14 @@
+{
+  "alertMonitoring": {
+    "checkIntervalMinutes": 60,
+    "watchdogIntervalMinutes": 5,
+    "maxConsecutiveErrors": 3,
+    "heartbeatTimeoutMinutes": 70,
+    "restartDelayMs": 1000,
+    "enabled": true,
+    "logging": {
+      "enableDebugLogs": false,
+      "enableHealthCheckLogs": true
+    }
+  }
+}

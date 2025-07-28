@@ -1,8 +1,9 @@
 import express from 'express';
 import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
-import { getMe, setAdminRole, register, completeTenantRegistration, updateUserProfile, changePassword } from '../controllers/authController.js';
+import { getMe, setAdminRole, register, completeTenantRegistration, updateUserProfile, changePassword, login } from '../controllers/authController.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { body, validationResult } from 'express-validator';
+import { fetchCompanyData } from '../controllers/openapiCompanyController.js';
 
 const router = express.Router();
 
@@ -65,6 +66,9 @@ router.post(
   completeTenantRegistration
 );
 
+// POST /api/auth/login -> Sets custom claims after client-side login
+router.post('/login', login);
+
 // GET /api/auth/me -> dati profilo (autenticazione richiesta)
 router.get('/me', verifyFirebaseToken, getMe);
 
@@ -111,5 +115,9 @@ router.post(
   },
   changePassword
 );
+
+// Nuova route
+// Rimuovi: const { fetchCompanyData } = require('../controllers/openapiCompanyController');
+router.get('/fetch-company-data', fetchCompanyData);
 
 export default router;

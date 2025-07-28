@@ -310,9 +310,10 @@ export const searchSuppliers = async (req, res) => {
     if (q) {
       pipeline.push({
         $match: {
+          // Riga 315
           $or: [
             { 'supplier.name': { $regex: q, $options: 'i' } },
-            { 'supplier.pIva': { $regex: q, $options: 'i' } },
+            { 'supplier.vatNumber': { $regex: q, $options: 'i' } },  // ✅ Cambiato da pIva
             { 'supplier.codiceFiscale': { $regex: q, $options: 'i' } }
           ]
         }
@@ -387,8 +388,17 @@ export const getSupplierDetails = async (req, res) => {
     const { id: supplierId } = req.params;
     const { startDate, endDate } = req.query;
 
+    console.log('🔍 === SUPPLIER DETAILS DEBUG ===');
+    console.log('📥 Request params:', { tenantId, supplierId, startDate, endDate });
+
     if (!tenantId) {
       return res.status(400).json({ error: 'TenantId mancante' });
+    }
+
+    // Verifica validità ObjectId
+    if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+      console.log('❌ Invalid supplierId format:', supplierId);
+      return res.status(400).json({ error: 'ID fornitore non valido' });
     }
 
     // Verifica che il fornitore esista E appartenga al tenant
@@ -396,6 +406,8 @@ export const getSupplierDetails = async (req, res) => {
       _id: new mongoose.Types.ObjectId(supplierId),
       tenantId: new mongoose.Types.ObjectId(tenantId)
     });
+    
+    console.log('🔍 Supplier found:', supplier ? 'YES' : 'NO');
     
     if (!supplier) {
       return res.status(404).json({ error: 'Fornitore non trovato' });
@@ -477,7 +489,7 @@ export const getSupplierDetails = async (req, res) => {
       supplier: {
         _id: supplier._id,
         name: supplier.name,
-        pIva: supplier.pIva,
+        vatNumber: supplier.vatNumber, // ✅ Corretto: era pIva
         codiceFiscale: supplier.codiceFiscale,
         email: supplier.email,
         phone: supplier.phone,
@@ -615,7 +627,7 @@ export const updateSupplier = async (req, res) => {
     }
 
     // Validazione: rimuovi campi non editabili per sicurezza
-    const nonEditableFields = ['pIva', 'codiceFiscale', '_id', 'tenantId', 'createdAt', 'updatedAt'];
+    const nonEditableFields = ['vatNumber', 'codiceFiscale', '_id', 'tenantId', 'createdAt', 'updatedAt'];  // ✅ Cambiato pIva con vatNumber
     nonEditableFields.forEach(field => delete updateData[field]);
 
     // Validazione email se presente

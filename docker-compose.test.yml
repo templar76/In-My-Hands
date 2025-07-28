@@ -1,0 +1,48 @@
+version: '3.8'
+
+networks:
+  shared-net:
+    external: true
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: inmyhands-nginx-test
+    ports:
+      - "80:80"   # HTTP
+      - "443:443" # HTTPS con SSL
+    volumes:
+      - ./nginx/test.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - client
+      - server
+    networks:
+      - shared-net
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.test
+    container_name: inmyhands-client-test
+    env_file:
+      - .env.test
+    networks:
+      - shared-net
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.test
+    container_name: inmyhands-server-test
+    env_file:
+      - .env.test
+    volumes:
+      - ./server/serviceAccountKey.json:/app/serviceAccountKey.json:ro
+      - ./server/config:/app/config:ro  # ✅ AGGIUNTO: Mappa la cartella config
+    networks:
+      - shared-net
+    restart: unless-stopped

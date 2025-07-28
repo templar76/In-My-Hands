@@ -209,10 +209,10 @@ export const getProducts = async (req, res) => {
               }
             }
           },
-          // Usa la descrizione standard o la prima descrizione disponibile
+          // Usa la descrizione o la prima descrizione disponibile
           description: {
             $ifNull: [
-              '$descriptionStd',
+              '$description',
               { $arrayElemAt: ['$descriptions.text', 0] }
             ]
           },

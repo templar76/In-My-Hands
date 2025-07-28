@@ -815,7 +815,7 @@ const ProductDetail = () => {
                         <FormControlLabel
                           value="price_threshold"
                           control={<Radio />}
-                          label="Alert Soglia Prezzo - Notifica quando il prezzo scende sotto una soglia"
+                          label="Alert Soglia Prezzo - Notifica quando il prezzo supera una soglia"
                         />
                         <FormControlLabel
                           value="price_variation"
@@ -848,7 +848,7 @@ const ProductDetail = () => {
                           type="number"
                           value={alertPrice}
                           onChange={(e) => setAlertPrice(e.target.value)}
-                          helperText="Riceverai una notifica quando il prezzo scende sotto questa soglia"
+                          helperText="Riceverai una notifica quando il prezzo supera questa soglia"
                           sx={{ mb: 2 }}
                           inputProps={{ min: 0, step: 0.01 }}
                         />
@@ -945,7 +945,7 @@ const ProductDetail = () => {
                       Come funzionano gli alert:
                     </Typography>
                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                      <li><strong>Soglia Prezzo:</strong> Notifica quando il prezzo scende sotto il valore impostato</li>
+                      <li><strong>Soglia Prezzo:</strong> Notifica quando il prezzo supera il valore impostato</li>
                       <li><strong>Variazione Prezzo:</strong> Notifica per cambiamenti significativi rispetto al prezzo medio</li>
                       <li><strong>Frequenza:</strong> Controllo automatico ogni ora</li>
                       <li><strong>Notifiche:</strong> Inviate via email</li>

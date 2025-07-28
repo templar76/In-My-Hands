@@ -248,10 +248,27 @@ export const resetConfig = async (req, res) => {
       return res.status(404).json({ error: 'Tenant non trovato' });
     }
 
+    // ✅ Usa configurazione ottimizzata per testing
     tenant.productMatchingConfig = {
-      phase1: { enabled: false, confidenceThreshold: 0.7, autoApproveAbove: 0.9, requireManualReview: true },
-      phase2: { enabled: false, handleUnmatched: true, createNewProducts: true, requireApprovalForNew: true },
-      phase3: { enabled: false, analyticsLevel: 'basic', mlOptimization: false, continuousLearning: false, performanceTracking: true },
+      phase1: { 
+        enabled: true,                    // ✅ Abilitata per testing
+        confidenceThreshold: 0.7, 
+        autoApproveAbove: 0.9, 
+        requireManualReview: false       // ✅ Automatico per testing
+      },
+      phase2: { 
+        enabled: true,                   // ✅ Abilitata per testing
+        handleUnmatched: true, 
+        createNewProducts: true, 
+        requireApprovalForNew: false     // ✅ Automatico per testing
+      },
+      phase3: { 
+        enabled: false, 
+        analyticsLevel: 'basic', 
+        mlOptimization: false, 
+        continuousLearning: false, 
+        performanceTracking: true 
+      },
       globalSettings: {
         maxPendingReviews: 100,
         notificationThresholds: { pendingReviews: 50, lowConfidenceMatches: 20, unmatchedProducts: 30 },
@@ -263,15 +280,10 @@ export const resetConfig = async (req, res) => {
     await tenant.save();
 
     res.json({
-      message: 'Configurazione ripristinata ai valori di default',
+      message: 'Configurazione ripristinata ai valori ottimizzati per testing',
       config: tenant.productMatchingConfig
     });
   } catch (error) {
-    logger.error('Errore nel reset configurazione', {
-      tenantId: req.user?.tenantId,
-      error: error.message,
-      stack: error.stack
-    });
-    res.status(500).json({ error: 'Errore interno del server' });
+    // ... gestione errori
   }
 };

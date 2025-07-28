@@ -92,6 +92,7 @@ export const importProducts = async (req, res) => {
             await ProductMatchingService.addAlternativeDescription(
               bestMatch.product._id,
               line.description,
+              tenantId,
               'invoice',
               req.user._id
             );

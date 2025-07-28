@@ -31,6 +31,7 @@
     "start": "react-scripts start",
     "start:beta": "env-cmd -f .env.beta react-scripts start",
     "build": "react-scripts build",
+    "build:test": "env-cmd -f .env.test react-scripts build",
     "build:beta": "env-cmd -f .env.beta react-scripts build",
     "build:production": "env-cmd -f .env.production react-scripts build",
     "test": "react-scripts test",

@@ -8,6 +8,8 @@ import {
   testAlert
 } from '../controllers/alertController.js';
 import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
+import configService from '../services/configService.js';
+import alertMonitoringService from '../services/alertMonitoringService.js'; // ✅ AGGIUNTO
 
 const router = express.Router();
 
@@ -15,13 +17,77 @@ const router = express.Router();
 router.use(verifyFirebaseToken);
 
 // CRUD Operations
-router.post('/', createAlert);                    // POST /api/alerts
-router.get('/', getUserAlerts);                   // GET /api/alerts
-router.put('/:alertId', updateAlert);             // PUT /api/alerts/:alertId
-router.delete('/:alertId', deleteAlert);          // DELETE /api/alerts/:alertId
+router.post('/', createAlert);
+router.get('/', getUserAlerts);
+router.put('/:alertId', updateAlert);
+router.delete('/:alertId', deleteAlert);
 
 // Operazioni speciali
-router.patch('/:alertId/toggle', toggleAlert);    // PATCH /api/alerts/:alertId/toggle
-router.post('/:alertId/test', testAlert);         // POST /api/alerts/:alertId/test
+router.patch('/:alertId/toggle', toggleAlert);
+router.post('/:alertId/test', testAlert);
+
+// Ottieni configurazione alert monitoring
+router.get('/monitoring/config', verifyFirebaseToken, async (req, res) => { // ✅ CORRETTO
+  try {
+    const config = configService.getAlertMonitoringConfig();
+    res.json({
+      status: 'ok',
+      config,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+});
+
+// Aggiorna configurazione alert monitoring
+router.put('/monitoring/config', verifyFirebaseToken, async (req, res) => { // ✅ CORRETTO
+  try {
+    const success = configService.updateConfig(req.body);
+    
+    if (success) {
+      // Ricarica la configurazione nel servizio
+      alertMonitoringService.reloadConfig();
+      
+      res.json({
+        status: 'ok',
+        message: 'Configurazione aggiornata con successo',
+        config: configService.getAlertMonitoringConfig(),
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        status: 'error',
+        message: 'Errore nell\'aggiornamento della configurazione'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+});
+
+// Stato del servizio di monitoraggio
+router.get('/monitoring/status', verifyFirebaseToken, async (req, res) => { // ✅ CORRETTO
+  try {
+    const status = alertMonitoringService.getStatus();
+    
+    res.json({
+      status: 'ok',
+      alertService: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+});
 
 export default router;

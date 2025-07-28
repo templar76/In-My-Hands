@@ -1,142 +1,130 @@
-// client/src/pages/CompleteTenantRegistrationPage.jsx
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
-import { Box, Typography, TextField, Button, Alert, Grid, Paper, CircularProgress } from '@mui/material';
-import { getApiUrl } from '../utils/apiConfig';
-import ClientLogger from '../utils/ClientLogger';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Box, Paper, Typography, TextField, Button, Grid, Alert, CircularProgress } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 
-const API_URL = getApiUrl();
+import { getApiUrl } from '../utils/apiConfig';
 
 const CompleteTenantRegistrationPage = () => {
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
-
+  const API_URL = getApiUrl();
   const [formData, setFormData] = useState({
     companyType: '',
     companyName: '',
     vatNumber: '',
+    codiceFiscale: '',
     address: '',
-    codiceFiscale: '', // Aggiungi questo campo
-    contacts: {
-      email: '',
-      phone: '',
-      sdiCode: '',
-      pec: '',
-    },
-    admin: {
-      displayName: '',
-      password: '',
-    },
+    contacts: { email: '', phone: '', sdiCode: '', pec: '' },
+    admin: { displayName: '', password: '' }
   });
-  const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'succeeded' | 'failed'
-  const [message, setMessage] = useState(null); // { type: 'success' | 'error', text: string }
+  const [status, setStatus] = useState('idle');
+  const [message, setMessage] = useState(null);
+  const [token, setToken] = useState('');
+
+  const [step, setStep] = useState(1); // 1: search, 2: form
+  const [searchValue, setSearchValue] = useState('');
+  const [fetchError, setFetchError] = useState(null);
 
   useEffect(() => {
-    if (!token) {
-      setMessage({ type: 'error', text: 'Token di registrazione mancante o non valido. Richiedi un nuovo link di registrazione.' });
-      setStatus('failed');
+    const query = new URLSearchParams(location.search);
+    const tokenParam = query.get('token');
+    if (tokenParam) {
+      setToken(tokenParam);
+    } else {
+      setMessage({ type: 'error', text: 'Token non valido o mancante.' });
     }
-  }, [token]);
+  }, [location.search]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleContactChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      contacts: {
-        ...prev.contacts,
-        [name]: value,
-      },
+      contacts: { ...prev.contacts, [name]: value }
     }));
   };
 
   const handleAdminChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      admin: {
-        ...prev.admin,
-        [name]: value,
-      },
+      admin: { ...prev.admin, [name]: value }
     }));
+  };
+
+  const handleFetch = async () => {
+    setFetchError(null);
+    if (!searchValue) {
+      setFetchError('Inserisci P.IVA o Codice Fiscale.');
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/api/auth/fetch-company-data?vatCode_taxCode_or_id=${searchValue}`);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message);
+      }
+      setFormData(prev => ({
+        ...prev,
+        companyName: data.data.companyName || '',
+        vatNumber: data.data.vatNumber || '',
+        codiceFiscale: data.data.codiceFiscale || '',
+        address: data.data.address || '',
+        contacts: { ...prev.contacts, sdiCode: data.data.sdiCode || '' }
+      }));
+      setStep(2);
+    } catch (err) {
+      setFetchError(err.message || 'Errore nel recupero dati. Riprova o inserisci manualmente.');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!token) {
-      setMessage({ type: 'error', text: 'Token non fornito.' });
-      return;
-    }
     setStatus('loading');
     setMessage(null);
-  
-    const payload = {
-      token,
-      ...formData,
-    };
-  
+
     try {
       const response = await fetch(`${API_URL}/api/auth/complete-tenant-registration`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...formData, token })
       });
+
       const data = await response.json();
-  
+
       if (!response.ok) {
-        throw new Error(data.error || `Errore ${response.status}: ${response.statusText}`);
+        throw new Error(data.message || 'Errore durante la registrazione.');
       }
-  
-      setStatus('succeeded');
-      setMessage({ type: 'success', text: data.message || 'Registrazione completata con successo! Verrai reindirizzato al login.' });
-      setTimeout(() => navigate('/login'), 5000);
+
+      setMessage({ type: 'success', text: 'Registrazione completata con successo!' });
+      setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
-      ClientLogger.error('Complete registration error', {
-        error: err,
-        token: token ? 'present' : 'missing',
-        formData: {
-          companyName: formData.companyName,
-          companyType: formData.companyType,
-          vatNumber: formData.vatNumber
-        },
-        context: 'CompleteTenantRegistrationPage.handleSubmit'
-      });
-      setStatus('failed');
-      setMessage({ type: 'error', text: err.message || 'Si è verificato un errore durante il completamento della registrazione.' });
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setStatus('idle');
     }
   };
 
-  if (status === 'succeeded') {
+  if (step === 1) {
     return (
-      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" sx={{ mt: 8, p: 3 }}>
+      <Box display="flex" justifyContent="center" sx={{ mt: 4, mb: 4, p: 2 }}>
         <Paper elevation={3} sx={{ p: 4, maxWidth: 500, width: '100%' }}>
-          <Typography variant="h5" gutterBottom align="center">Registrazione Completata!</Typography>
-          {message && <Alert severity={message.type} sx={{ mb: 2 }}>{message.text}</Alert>}
-          <Button component={RouterLink} to="/login" variant="contained" fullWidth sx={{ mt: 2 }}>
-            Vai al Login
-          </Button>
-        </Paper>
-      </Box>
-    );
-  }
-  
-  if (!token && status === 'failed') {
-     return (
-      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" sx={{ mt: 8, p: 3 }}>
-        <Paper elevation={3} sx={{ p: 4, maxWidth: 500, width: '100%' }}>
-          <Typography variant="h5" gutterBottom align="center">Errore Token</Typography>
-          {message && <Alert severity={message.type}>{message.text}</Alert>}
-           <Button component={RouterLink} to="/register" variant="outlined" fullWidth sx={{ mt: 2 }}>
-            Richiedi un nuovo link
-          </Button>
+          <Typography variant="h5" gutterBottom align="center">Recupera Dati Azienda</Typography>
+          <TextField
+            label="P.IVA o Codice Fiscale"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            fullWidth
+            sx={{ mb: 2 }}
+          />
+          {fetchError && <Alert severity="error" sx={{ mb: 2 }}>{fetchError}</Alert>}
+          <Button variant="contained" onClick={handleFetch} fullWidth sx={{ mb: 1 }}>Recupera</Button>
+          <Button variant="outlined" onClick={() => setStep(2)} fullWidth>Inserisci Manualmente</Button>
         </Paper>
       </Box>
     );
@@ -213,8 +201,8 @@ const CompleteTenantRegistrationPage = () => {
             {status === 'loading' ? <CircularProgress size={24} /> : 'Completa Registrazione'}
           </Button>
           {status !== 'loading' && (
-             <Button component={RouterLink} to="/login" variant="outlined" fullWidth sx={{ mt: 1 }}>
-                Annulla e vai al Login
+            <Button component={RouterLink} to="/login" variant="outlined" fullWidth sx={{ mt: 1 }}>
+              Annulla e vai al Login
             </Button>
           )}
         </form>

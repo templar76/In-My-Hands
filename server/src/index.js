@@ -21,6 +21,7 @@ import { securityHeaders, detectSuspiciousActivity, forceHTTPS } from './middlew
 import { sanitizeInput } from './middleware/validation.js';
 import clientLogsRoutes from './routes/clientLogs.js';
 import compression from 'compression';
+import alertMonitoringService from './services/alertMonitoringService.js';
 
 dotenv.config();
 
@@ -43,6 +44,9 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
+
+// Sicurezza: Abilita il trust proxy per l'identificazione corretta dell'IP dietro Nginx
+app.set('trust proxy', 1); // 1 = primo hop (il nostro reverse proxy)
 
 // Sicurezza: Forza HTTPS in produzione
 app.use(forceHTTPS);
@@ -164,11 +168,19 @@ const server = app.listen(PORT, () => {
     environment: process.env.NODE_ENV || 'development',
     port: PORT
   });
+  
+  // Avvia il servizio di monitoraggio alert
+  alertMonitoringService.start();
+  logger.info('🔔 Alert Monitoring Service avviato');
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('👋 SIGTERM RECEIVED. Shutting down gracefully');
+  
+  // Ferma il servizio di monitoraggio
+  alertMonitoringService.stop();
+  
   server.close(() => {
     logger.info('💥 Process terminated!');
     process.exit(0);

@@ -19,11 +19,11 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  //Divider,
   List,
   ListItem,
   ListItemText,
-  Snackbar // ← Nuovo import per feedback
+  Snackbar,
+  Tooltip as MuiTooltip // ← Aggiungi questo con alias
 } from '@mui/material';
 import {
   ArrowBack,
@@ -32,9 +32,10 @@ import {
   TrendingDown,
   CompareArrows,
   ShoppingCart,
-  Edit, // ← Nuovo import
-  Save, // ← Nuovo import
-  Cancel // ← Nuovo import
+  Edit,
+  Save,
+  Cancel,
+  Visibility
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -368,6 +369,173 @@ const SupplierDetail = () => {
         )}
       </Box>
 
+      {/* Dati Anagrafici Supplier - Layout compatto */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" color="primary">
+              Dati Anagrafici
+            </Typography>
+            {/* ✅ RIMOSSO: Pulsante modifica duplicato */}
+          </Box>
+          
+          {isEditing ? (
+            <>
+              <Grid container spacing={2}>
+                {/* ✅ RIMOSSO: Campo Nome/Ragione Sociale duplicato */}
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Partita IVA"
+                    value={editedSupplier.vatNumber || editedSupplier.pIva || ''}
+                    size="small"
+                    InputProps={{ readOnly: true }}
+                    helperText="Campo non modificabile"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Codice Fiscale"
+                    value={editedSupplier.codiceFiscale || ''}
+                    size="small"
+                    InputProps={{ readOnly: true }}
+                    helperText="Campo non modificabile"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    value={editedSupplier.email || editedSupplier.contatti?.email || ''}
+                    onChange={(e) => setEditedSupplier(prev => ({ 
+                      ...prev, 
+                      email: e.target.value,
+                      contatti: { ...prev.contatti, email: e.target.value }
+                    }))}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Telefono"
+                    value={editedSupplier.phone || editedSupplier.contatti?.telefono || ''}
+                    onChange={(e) => setEditedSupplier(prev => ({ 
+                      ...prev, 
+                      phone: e.target.value,
+                      contatti: { ...prev.contatti, telefono: e.target.value }
+                    }))}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    fullWidth
+                    label="PEC"
+                    value={editedSupplier.pec || ''}
+                    onChange={(e) => setEditedSupplier(prev => ({ ...prev, pec: e.target.value }))}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Indirizzo"
+                    value={editedSupplier.address || ''}
+                    onChange={(e) => setEditedSupplier(prev => ({ ...prev, address: e.target.value }))}
+                    multiline
+                    rows={2}
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+              
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<Cancel />}
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  size="small"
+                >
+                  Annulla
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<Save />}
+                  onClick={handleSaveSupplier}
+                  disabled={saving}
+                  size="small"
+                >
+                  {saving ? 'Salvataggio...' : 'Salva'}
+                </Button>
+              </Box>
+            </>
+          ) : (
+            // Layout compatto orizzontale per visualizzazione
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 3,
+              alignItems: 'center',
+              '@media (max-width: 768px)': {
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: 1
+              }
+            }}>
+              {/* ✅ RIMOSSO: Campo Nome/Ragione Sociale duplicato */}
+              
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="textSecondary" display="block">Partita IVA</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {supplierData?.supplier?.vatNumber || supplierData?.supplier?.pIva || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="textSecondary" display="block">Codice Fiscale</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {supplierData?.supplier?.codiceFiscale || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="textSecondary" display="block">Email</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {supplierData?.supplier?.email || supplierData?.supplier?.contatti?.email || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="textSecondary" display="block">Telefono</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {supplierData?.supplier?.phone || supplierData?.supplier?.contatti?.telefono || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="caption" color="textSecondary" display="block">PEC</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {supplierData?.supplier?.pec || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ minWidth: '100%', mt: 1 }}>
+                <Typography variant="caption" color="textSecondary" display="block">Indirizzo</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {supplierData?.supplier?.address || 'N/A'}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Filtri per range di date */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -470,6 +638,8 @@ const SupplierDetail = () => {
         </Grid>
       </Grid>
 
+
+
       {/* Grafici */}
       <Grid container spacing={3} mb={3}>
         <Grid xs={12} md={6}>
@@ -548,17 +718,36 @@ const SupplierDetail = () => {
                     <TableCell align="right">
                       {product.invoiceCount}
                     </TableCell>
+                    
+                    
                     <TableCell align="center">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<ShoppingCart />}
-                        onClick={() => {
-                          navigate(`/products/${product._id.productId}`);
-                        }}
-                      >
-                        Dettagli
+                        {product._id?.productId ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<ShoppingCart />}
+                            onClick={() => {
+                              const productId = product._id.productId;
+                              console.log('Navigating to product:', productId);
+                              navigate(`/products/${String(productId)}`);
+                           }}
+                       >
+                         Dettagli
                       </Button>
+                     ) : (
+                        <MuiTooltip title="Questo prodotto non è ancora stato abbinato al catalogo">
+                          <span>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<ShoppingCart />}
+                              disabled
+                            >
+                                Dettagli
+                              </Button>
+                            </span>
+                          </MuiTooltip>
+                        )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -628,6 +817,8 @@ const SupplierDetail = () => {
           </Alert>
         </CardContent>
       </Card>
+
+
 
       {/* Snackbar per feedback */}
       <Snackbar

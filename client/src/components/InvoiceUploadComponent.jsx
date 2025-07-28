@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
 import {
   Box,
   Button,
@@ -7,16 +8,16 @@ import {
   LinearProgress,
   Alert
 } from '@mui/material';
-import { useDropzone } from 'react-dropzone';
+import { Upload } from '@mui/icons-material'; // Aggiunto import dell'icona Upload
 import { getAuth } from 'firebase/auth';
 import axios from 'axios';
-import { getApiUrl } from '../utils/apiConfig';
-import ClientLogger from '../utils/ClientLogger';
+import { getApiUrl } from '../utils/apiConfig'; // ✅ CORRETTO: era '../utils/api'
+import ClientLogger from '../utils/ClientLogger'; // ✅ CORRETTO: era '../utils/clientLogger'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const InvoiceUploadComponent = ({ onSuccess }) => {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
@@ -24,12 +25,11 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
 
   const onDrop = useCallback(acceptedFiles => {
     if (acceptedFiles.length > 0) {
-      const f = acceptedFiles[0];
-      if (f.size > MAX_FILE_SIZE) {
-        setError(`File troppo grande. Max ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(1)}MB`);
-        return;
+      const validFiles = acceptedFiles.filter(f => f.size <= MAX_FILE_SIZE);
+      if (validFiles.length !== acceptedFiles.length) {
+        setError(`Alcuni file superano il limite di ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(1)}MB`);
       }
-      setFile(f);
+      setFiles(validFiles);
       setError('');
       setSuccess('');
     }
@@ -43,17 +43,21 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
       ).join('; ');
       setError(errorMsgs || 'File non accettato');
     },
-    multiple: false,
+    multiple: true,
     accept: {
       'application/pdf': ['.pdf'],
       'text/xml': ['.xml'],
-      'application/xml': ['.xml']
+      'application/xml': ['.xml'],
+      'application/pkcs7-mime': ['.p7m'],
+      'application/zip': ['.zip']
     },
     maxSize: MAX_FILE_SIZE
   });
 
   const handleUpload = async () => {
-    if (!file) return setError('Seleziona un file prima di caricare');
+    if (!files || files.length === 0) {
+      return setError('Seleziona almeno un file prima di caricare');
+    }
 
     setUploading(true);
     setProgress(0);
@@ -67,10 +71,12 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
       const token = await user.getIdToken();
 
       const formData = new FormData();
-      formData.append('file', file);
+      files.forEach(file => {
+        formData.append('files', file);
+      });
 
       const res = await axios.post(
-        `${getApiUrl()}/api/invoices/upload`,
+        `${getApiUrl()}/api/invoices/upload-tracked`,
         formData,
         {
           headers: {
@@ -82,35 +88,38 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
           }
         }
       );
+      
+      if (res.data.jobId) {
+        setSuccess(`Elaborazione avviata. Job ID: ${res.data.jobId}`);
+        
+        if (onSuccess) {
+          onSuccess({
+            jobId: res.data.jobId,
+            totalFiles: res.data.totalFiles
+          });
+        }
+      }
 
-      ClientLogger.info('Invoice file uploaded successfully', {
+      ClientLogger.info('Invoice files uploaded successfully', {
         component: 'InvoiceUploadComponent',
         action: 'handleUpload',
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
+        filesCount: files.length,
+        totalSize: files.reduce((sum, f) => sum + f.size, 0),
         responseData: {
           success: res.data.success,
-          invoiceId: res.data.invoiceId,
+          jobId: res.data.jobId,
           message: res.data.message
         }
       });
-      setSuccess('Fattura caricata con successo');
-      setFile(null);
+      
+      setFiles([]);
       setProgress(0);
       
-      // Chiama callback di successo dopo un breve delay
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-      }, 1500);
-      
     } catch (err) {
-      ClientLogger.error('Error uploading invoice file', {
+      ClientLogger.error('Error uploading invoice files', {
         component: 'InvoiceUploadComponent',
         action: 'handleUpload',
-        fileName: file?.name,
-        fileSize: file?.size,
-        fileType: file?.type,
+        filesCount: files?.length,
         error: err.message,
         status: err.response?.status,
         responseData: err.response?.data
@@ -131,33 +140,56 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         {...getRootProps()}
         variant="outlined"
         sx={{
-          p: 4,
+          p: 3, // Ridotto da 4 a 3
           textAlign: 'center',
-          borderColor: isDragActive ? 'primary.main' : 'grey.400',
-          bgcolor: isDragActive ? 'grey.100' : 'transparent',
+          borderColor: isDragActive ? 'primary.main' : 'grey.300',
+          bgcolor: isDragActive ? 'primary.50' : 'grey.50',
           cursor: 'pointer',
-          mb: 2
+          mb: 2,
+          borderStyle: 'dashed', // Aggiunto stile tratteggiato
+          '&:hover': {
+            borderColor: 'primary.main',
+            bgcolor: 'primary.25'
+          }
         }}
       >
         <input {...getInputProps()} />
+        <Upload sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
         {
           isDragActive
-            ? <Typography>Rilascia qui il file...</Typography>
-            : <Typography>
-                Trascina qui il PDF o XML, oppure clicca per selezionarlo
-              </Typography>
+            ? <Typography variant="h6" color="primary">Rilascia qui i file...</Typography>
+            : <>
+                <Typography variant="h6" gutterBottom>
+                  Trascina i file qui o clicca per selezionarli
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Formati supportati: PDF, XML, P7M, ZIP • Max 10MB per file
+                </Typography>
+              </>
         }
-        {file && (
-          <Typography sx={{ mt: 2 }}>
-            File selezionato: <strong>{file.name}</strong>
-          </Typography>
+        {files.length > 0 && (
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              File selezionati: <strong>{files.length}</strong>
+            </Typography>
+            <Box sx={{ maxHeight: 120, overflowY: 'auto' }}>
+              {files.map((file, index) => (
+                <Typography key={index} variant="body2" component="div" sx={{ textAlign: 'left' }}>
+                  📄 {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                </Typography>
+              ))}
+            </Box>
+          </Box>
         )}
       </Paper>
 
       {uploading && (
         <Box mb={2}>
-          <LinearProgress variant="determinate" value={progress} />
-          <Typography variant="body2" align="center">{progress}%</Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="body2">Caricamento in corso...</Typography>
+            <Typography variant="body2" fontWeight="bold">{progress}%</Typography>
+          </Box>
+          <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 4 }} />
         </Box>
       )}
 
@@ -173,14 +205,30 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         </Alert>
       )}
 
-      <Button
-        variant="contained"
-        disabled={!file || uploading}
-        onClick={handleUpload}
-        fullWidth
-      >
-        {uploading ? 'Caricamento...' : 'Carica Fattura'}
-      </Button>
+      <Box display="flex" gap={2}>
+        <Button
+          variant="contained"
+          disabled={files.length === 0 || uploading}
+          onClick={handleUpload}
+          sx={{ flex: 1 }}
+          size="large"
+        >
+          {uploading ? 'Caricamento...' : `Carica ${files.length > 1 ? files.length + ' File' : 'File'}`}
+        </Button>
+        {files.length > 0 && !uploading && (
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setFiles([]);
+              setError('');
+              setSuccess('');
+            }}
+            size="large"
+          >
+            Cancella
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 };

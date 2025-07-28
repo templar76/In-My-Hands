@@ -211,7 +211,19 @@ function Products() {
   };
 
   const handleProductClick = (productId) => {
-    navigate(`/products/${productId}`);
+    console.log('Product ID type:', typeof productId);
+  console.log('Product ID value:', productId);
+  console.log('Product ID string:', String(productId));
+  
+  if (!productId) {
+    console.error('Product ID is null or undefined');
+    return;
+  }
+  
+  // Assicurati che sia una stringa
+  const idString = String(productId);
+  navigate(`/products/${idString}`);
+    //navigate(`/products/${productId}`);
   };
 
   // Dati per il grafico

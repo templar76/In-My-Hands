@@ -100,17 +100,16 @@ AlertSchema.methods.calculateAveragePrice = async function() {
   const Product = mongoose.model('Product');
   const product = await Product.findById(this.productId);
   
-  // ⭐ CORREZIONE: Controlla se pricesBySupplier esiste ed è un array
-  if (!product || !product.pricesBySupplier || !Array.isArray(product.pricesBySupplier) || product.pricesBySupplier.length === 0) {
+  // Nella funzione calculateAveragePrice, sostituire:
+  if (!product || !product.prices || !Array.isArray(product.prices) || product.prices.length === 0) {
     return null;
   }
   
   let totalPrices = 0;
   let priceCount = 0;
   
-  product.pricesBySupplier.forEach(supplier => {
+  product.prices.forEach(supplier => { // ✅ CORRETTO: 'prices' invece di 'pricesBySupplier'
     if (supplier.priceHistory && supplier.priceHistory.length > 0) {
-      // Prende l'ultimo prezzo di ogni fornitore
       const lastPrice = supplier.priceHistory[supplier.priceHistory.length - 1];
       totalPrices += lastPrice.price;
       priceCount++;

@@ -22,7 +22,7 @@ const InvoiceSchema = new Schema({
   },
   supplier: {
     name: { type: String, required: true },
-    pIva: { type: String, required: true },
+    vatNumber: { type: String, required: true },  // Sostituito pIva con vatNumber
     codiceFiscale: { type: String },
     pec: { type: String },
     sdiCode: { type: String },
@@ -44,11 +44,12 @@ const InvoiceSchema = new Schema({
   },
   customer: {
     name: { type: String, required: true },
-    pIva: { type: String, required: true },
+    vatNumber: { type: String, required: true },
     codiceFiscale: { type: String },
     pec: { type: String },
     sdiCode: { type: String },
-    address: { type: String }
+    address: { type: String },
+    vatNumber: { type: String, required: true },
   },
   // Riferimenti documenti
   documentReferences: {
@@ -159,7 +160,7 @@ const InvoiceSchema = new Schema({
       codeInternal: { type: String }, // AGGIUNTO: Campo per il codice interno del prodotto
       matchingMethod: {
         type: String,
-        enum: ['exact', 'fuzzy', 'manual', 'ml_assisted']
+        enum: ['exact', 'fuzzy', 'manual', 'ml_assisted', 'none']  // Aggiunto 'none'
       },
       reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
       reviewedAt: { type: Date },
@@ -224,6 +225,22 @@ const InvoiceSchema = new Schema({
       iban: { type: String }
     }
   ],
+  // ✅ NUOVO: Campo per errori di validazione
+  validationErrors: [{
+    type: { 
+      type: String, 
+      enum: ['vatNumber_mismatch', 'duplicate_invoice', 'parsing_error', 'validation_error'],
+      required: true 
+    },
+    message: { type: String, required: true },
+    severity: { 
+      type: String, 
+      enum: ['error', 'warning', 'info'], 
+      default: 'error' 
+    },
+    timestamp: { type: Date, default: Date.now },
+    resolved: { type: Boolean, default: false }
+  }],
   path: { type: String, required: true },
   rawMetadata: { type: Schema.Types.Mixed }
 }, {

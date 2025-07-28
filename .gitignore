@@ -1,7 +1,52 @@
+# File di configurazione sensibili del server
 server/serviceAccountKey.json
-client/src/pages/__Home.jsx
-client/.env
 server/.env
+server/.env.*
+
+# File di configurazione sensibili del client
+client/.env
+client/.env.*
+
+# File di configurazione sensibili del progetto
+.env.test
+.env.production
+.env.local
+.env.*
+.env
+# Certificati SSL e chiavi private
+nginx/ssl/*.crt
+nginx/ssl/*.key
+nginx/ssl/*.pem
+nginx/ssl/*.p12
+nginx/ssl/*.pfx
+
+# Log files
+server/logs/
+*.log
+
+# File temporanei e di sistema
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Directory di dati sensibili
 server/Data/
 Documentazione/
+
+# File temporanei di backup
+*.bak
+*.backup
+*.tmp
+
+# File di configurazione IDE
+.vscode/settings.json
+.idea/
+
+# File temporanei di sviluppo
+client/src/pages/__Home.jsx
+*.xml
+server/.DS_Store

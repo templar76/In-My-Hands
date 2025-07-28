@@ -10,7 +10,24 @@ import logger from '../utils/logger.js';
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000'; // Assicurati che CLIENT_URL sia configurato nel .env
 
+// ✅ Configura il transporter SMTP centralizzato (come in invitationController)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
+
 // Fase 1: Inizia la registrazione del tenant, invia email con token
+// ✅ Usa FRONTEND_URL invece di CLIENT_URL per coerenza
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 export const register = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -18,6 +35,15 @@ export const register = async (req, res) => {
   }
 
   const { email, plan = 'free' } = req.body;
+
+  // ✅ Log delle variabili SMTP per debugging (senza bloccare)
+  logger.debug('Configurazione SMTP', {
+    smtpHost: process.env.SMTP_HOST,
+    smtpPort: process.env.SMTP_PORT,
+    smtpUser: process.env.SMTP_USER,
+    smtpFrom: process.env.SMTP_FROM,
+    smtpFromLength: process.env.SMTP_FROM?.length
+  });
 
   try {
     const existingUser = await User.findOne({ email });
@@ -40,40 +66,76 @@ export const register = async (req, res) => {
       expiresAt,
     });
 
-    const completeRegistrationLink = `${CLIENT_URL}/complete-tenant-registration?token=${token}`;
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: +process.env.SMTP_PORT,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
+    // ✅ Cambia questa riga
+    const completeRegistrationLink = `${FRONTEND_URL}/complete-tenant-registration?token=${token}`;
+    
+    // ✅ Aggiungi logging per debug
+    logger.debug('Link di registrazione generato', {
+      frontendUrl: FRONTEND_URL,
+      completeLink: completeRegistrationLink,
+      token: token.substring(0, 8) + '...'
     });
 
-    await transporter.sendMail({
-      from: `"In My Hands" <${process.env.SMTP_FROM}>`,
-      to: email,
-      subject: 'Completa la registrazione del tuo Tenant su In My Hands',
-      html: `
-        <p>Ciao,</p>
-        <p>Grazie per aver iniziato la registrazione del tuo tenant su In My Hands.</p>
-        <p>Per completare la registrazione, clicca sul seguente link:</p>
-        <p><a href="${completeRegistrationLink}">${completeRegistrationLink}</a></p>
-        <p>Questo link scadrà tra 24 ore.</p>
-        <p>Se non hai richiesto tu questa registrazione, puoi ignorare questa email.</p>
-      `,
-    });
+    // ✅ Gestione errori specifica per l'invio email
+    try {
+      const emailResult = await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: email,
+        subject: 'Completa la registrazione del tuo Tenant su In My Hands',
+        // ✅ Aggiungi envelope per specificare il mittente del Return-Path
+        envelope: {
+          from: process.env.SMTP_USER, // Usa l'indirizzo SMTP_USER come mittente
+          to: email
+        },
+        html: `
+          <p>Ciao,</p>
+          <p>Grazie per aver iniziato la registrazione del tuo tenant su In My Hands.</p>
+          <p>Per completare la registrazione, clicca sul seguente link:</p>
+          <p><a href="${completeRegistrationLink}">${completeRegistrationLink}</a></p>
+          <p>Questo link scadrà tra 24 ore.</p>
+          <p>Se non hai richiesto tu questa registrazione, puoi ignorare questa email.</p>
+        `,
+      });
+      
+      logger.info('Email di registrazione tenant inviata con successo', { 
+        email, 
+        token: token.substring(0, 8) + '...',
+        plan,
+        messageId: emailResult.messageId,
+        response: emailResult.response,
+        envelope: emailResult.envelope
+      });
+      
+    } catch (emailError) {
+      logger.error('Errore invio email registrazione tenant', {
+        email,
+        error: emailError.message,
+        stack: emailError.stack,
+        smtpHost: process.env.SMTP_HOST,
+        smtpPort: process.env.SMTP_PORT,
+        smtpFrom: process.env.SMTP_FROM
+      });
+      
+      await TenantRegistrationToken.deleteOne({ token });
+      
+      return res.status(500).json({ 
+        error: `Errore nell'invio dell'email di registrazione: ${emailError.message}` 
+      });
+    }
 
-    return res.status(200).json({ message: 'Email di conferma inviata. Controlla la tua casella di posta per completare la registrazione.' });
+    return res.status(200).json({ 
+      message: 'Email di conferma inviata. Controlla la tua casella di posta per completare la registrazione.' 
+    });
 
   } catch (err) {
-    logger.error('Error in initiateTenantRegistration', { error: err.message, stack: err.stack });
-    return res.status(500).json({ error: 'Errore interno del server durante l\'avvio della registrazione.' });
+    logger.error('Error in initiateTenantRegistration', { 
+      error: err.message, 
+      stack: err.stack,
+      email 
+    });
+    return res.status(500).json({ 
+      error: 'Errore interno del server durante l\'avvio della registrazione.' 
+    });
   }
 };
 
@@ -86,7 +148,8 @@ export const completeTenantRegistration = async (req, res) => {
 
   const { 
     token,
-    companyType, companyName, vatNumber, address,
+    companyType, companyName, vatNumber, codiceFiscale, address,
+    country = 'IT', // Aggiungiamo il campo country con default 'IT'
     contacts: { email: companyEmail, phone, sdiCode, pec },
     metadata,
     admin: { displayName, password }
@@ -110,13 +173,27 @@ export const completeTenantRegistration = async (req, res) => {
       return res.status(409).json({ error: 'Un utente con questa email è già registrato nel sistema.' });
     }
 
-    const existingTenantByVat = await Tenant.findOne({ vatNumber });
+    // Normalizza il VAT number aggiungendo il prefisso del paese se non presente
+    let normalizedVatNumber = vatNumber;
+    if (country && !vatNumber.startsWith(country)) {
+      normalizedVatNumber = `${country}${vatNumber}`;
+      logger.debug('Normalizzato VAT number con prefisso paese', {
+        original: vatNumber,
+        normalized: normalizedVatNumber,
+        country
+      });
+    }
+
+    const existingTenantByVat = await Tenant.findOne({ vatNumber: normalizedVatNumber });
     if (existingTenantByVat) {
       return res.status(409).json({ error: 'Un tenant con questa Partita IVA è già registrato.' });
     }
 
     const tenant = await Tenant.create({
-      companyType, companyName, vatNumber, address,
+      companyType, companyName, country, address,
+      vatNumber: normalizedVatNumber, // Usiamo il VAT number normalizzato
+      codiceFiscale,
+      plan, // Aggiunto il campo plan
       contacts: { email: companyEmail, phone, sdiCode, pec },
       metadata
     });
@@ -193,6 +270,36 @@ export const completeTenantRegistration = async (req, res) => {
   } catch (err) {
     logger.error('Error in completeTenantRegistration', { error: err.message, stack: err.stack });
     return res.status(500).json({ error: 'Errore interno del server durante il completamento della registrazione.' });
+  }
+};
+
+export const login = async (req, res) => {
+  try {
+    // The client sends the token, not uid.
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Token non fornito' });
+    }
+
+    const decodedToken = await auth.verifyIdToken(token);
+    const user = await User.findOne({ uid: decodedToken.uid }).lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utente non trovato nel nostro database.' });
+    }
+
+    // Set custom claims for the user.
+    await auth.setCustomUserClaims(user.uid, {
+      tenantId: user.tenantId.toString(),
+      role: user.role,
+    });
+
+    // The client should refresh the token to get the new claims.
+    res.status(200).json({ message: 'Login successful. Custom claims set.' });
+
+  } catch (error) {
+    logger.error('Error in login function', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Errore interno del server durante il login.' });
   }
 };
 

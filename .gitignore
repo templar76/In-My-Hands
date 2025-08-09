@@ -5,3 +5,8 @@ server/.env
 .DS_Store
 server/Data/
 Documentazione/
+client/IT016417907022025L_04pyf.xml
+/server/scripts
+/nginx
+client/.env.test
+.env*

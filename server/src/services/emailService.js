@@ -4,11 +4,6 @@ import logger from '../utils/logger.js';
 // Configurazione del trasportatore email per Alert System
 const createAlertTransporter = () => {
   logger.debug('Creazione del trasportatore per gli alert...');
-  logger.debug('ALERT_SMTP_HOST:', process.env.ALERT_SMTP_HOST);
-  logger.debug('ALERT_SMTP_PORT:', process.env.ALERT_SMTP_PORT);
-  logger.debug('ALERT_SMTP_SECURE:', process.env.ALERT_SMTP_SECURE);
-  logger.debug('ALERT_SMTP_USER:', process.env.ALERT_SMTP_USER);
-  logger.debug('ALERT_SMTP_PASS:', process.env.ALERT_SMTP_PASS ? '******' : 'Non impostata');
 
   return nodemailer.createTransport({
     host: process.env.ALERT_SMTP_HOST || 'smtp.gmail.com',

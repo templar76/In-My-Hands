@@ -50,3 +50,4 @@ Documentazione/
 client/src/pages/__Home.jsx
 *.xml
 server/.DS_Store
+server/scripts/*.*

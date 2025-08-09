@@ -61,6 +61,12 @@ scp .env.test $SERVER_HOST:/tmp/.env
 echo "🔧 Deploy remoto..."
 # Nel blocco SSH remoto, aggiungi dopo l'estrazione:
 ssh $SERVER_HOST << 'EOF'
+    # Verifica se la rete shared-net esiste e creala se necessario
+    if ! docker network inspect shared-net &>/dev/null; then
+        echo "🌐 Creazione rete shared-net..."
+        docker network create shared-net
+    fi
+    
     # Ferma servizi esistenti
     if [ -f "/opt/inmyhands/docker-compose.test.yml" ]; then
         cd /opt/inmyhands && docker-compose -f docker-compose.test.yml down

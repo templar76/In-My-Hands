@@ -52,36 +52,74 @@ export const uploadInvoice = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    logger.error('Errore upload singola fattura', {
-      error: error.message,
-      stack: error.stack,
-      tenantId: req.user?.tenantId,
-      userId: req.user?.uid
+    // Nel blocco catch della funzione uploadInvoice
+    try {
+      // Gestisci errori di validazione - SALVA NEL JOB
+      if (error.code === 'VALIDATION_FAILED' && error.validationErrors) {
+        // Trova il job e aggiorna il file con gli errori di validazione
+        await ProcessingJobService.updateFileValidationErrors(
+          jobId, // Devi passare il jobId dal contesto
+          filename, // Nome del file che ha generato l'errore
+          error.validationErrors
+        );
+        
+        // Restituisci successo ma con stato di validazione fallita
+        return res.json({
+          success: true,
+          message: 'File caricato ma con errori di validazione',
+          jobId: jobId,
+          validationFailed: true
+        });
+      }
+    
+    // Gestisci errori di fattura duplicata
+    if (error.code === 'DUPLICATE_INVOICE') {
+    return res.status(409).json({
+    success: false,
+    message: 'Fattura duplicata: già presente nel sistema',
+    error: error.message,
+    existingInvoiceId: error.existingInvoiceId,
+    validationErrors: error.validationErrors
     });
-
-    // Gestisci errori di validazione - SALVA NEL JOB
-    if (error.code === 'VALIDATION_FAILED' && error.validationErrors) {
-      // Trova il job e aggiorna il file con gli errori di validazione
-      await ProcessingJobService.updateFileValidationErrors(
-        jobId, // Devi passare il jobId dal contesto
-        filename, // Nome del file che ha generato l'errore
-        error.validationErrors
-      );
-      
-      // Restituisci successo ma con stato di validazione fallita
-      return res.json({
-        success: true,
-        message: 'File caricato ma con errori di validazione',
-        jobId: jobId,
-        validationFailed: true
-      });
     }
-
+    
     res.status(500).json({
       success: false,
       message: 'Errore durante l\'upload della fattura',
       error: error.message
     });
+    } catch (error) {
+    logger.error('Errore upload singola fattura', {
+    error: error.message,
+    stack: error.stack,
+    tenantId: req.user?.tenantId,
+    userId: req.user?.uid
+    });
+    
+    // Gestisci errori di validazione
+    if (error.code === 'VALIDATION_FAILED' && error.validationErrors) {
+    // Trova il job e aggiorna il file con gli errori di validazione
+    await ProcessingJobService.updateFileValidationErrors(
+    jobId, // Devi passare il jobId dal contesto
+    filename, // Nome del file che ha generato l'errore
+    error.validationErrors
+    );
+    
+    // Restituisci successo ma con stato di validazione fallita
+    return res.json({
+    success: true,
+    message: 'File caricato ma con errori di validazione',
+    jobId: jobId,
+    validationFailed: true
+    });
+    }
+    
+    res.status(500).json({
+    success: false,
+    message: 'Errore durante l\'upload della fattura',
+    error: error.message
+    });
+    }
   }
 };
 

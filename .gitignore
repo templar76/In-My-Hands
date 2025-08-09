@@ -6,7 +6,7 @@ server/.env.*
 # File di configurazione sensibili del client
 client/.env
 client/.env.*
-
+client/build/
 # File di configurazione sensibili del progetto
 .env.test
 .env.production
@@ -36,6 +36,7 @@ Thumbs.db
 # Directory di dati sensibili
 server/Data/
 Documentazione/
+server/scripts/
 
 # File temporanei di backup
 *.bak
@@ -45,8 +46,11 @@ Documentazione/
 # File di configurazione IDE
 .vscode/settings.json
 .idea/
-
+.trae/
 # File temporanei di sviluppo
 client/src/pages/__Home.jsx
 *.xml
 server/.DS_Store
+client/.DS_Store
+client/node_modules
+deploy-*

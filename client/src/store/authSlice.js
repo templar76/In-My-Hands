@@ -117,31 +117,63 @@ export const fetchUserProfile = createAsyncThunk(
     if (!firebaseUser) {
       return rejectWithValue('No Firebase user currently authenticated.');
     }
-    try {
-      const token = await firebaseUser.getIdToken();
-      const API_URL = getApiUrl();
-      const response = await fetch(`${API_URL}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+    
+    // Configurazione del retry con backoff esponenziale
+    const MAX_RETRIES = 3;
+    const INITIAL_RETRY_DELAY = 1000; // 1 secondo
+    let retryCount = 0;
+    
+    const executeWithRetry = async () => {
+      try {
+        const token = await firebaseUser.getIdToken();
+        const API_URL = getApiUrl();
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          ClientLogger.warn('fetchUserProfile: User not found or not authorized in backend (401). Clearing session.');
-          dispatch(clearUser()); 
-          return rejectWithValue('User not found or not authorized in backend.');
+        if (!response.ok) {
+          // Gestione specifica per errori 429 (Too Many Requests)
+          if (response.status === 429 && retryCount < MAX_RETRIES) {
+            retryCount++;
+            // Calcola il ritardo con backoff esponenziale
+            const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount - 1);
+            ClientLogger.warn(`fetchUserProfile: Rate limit exceeded (429). Retrying in ${delay}ms. Attempt ${retryCount}/${MAX_RETRIES}`);
+            
+            // Attendi prima di riprovare
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return executeWithRetry(); // Riprova
+          }
+          
+          if (response.status === 401) {
+            ClientLogger.warn('fetchUserProfile: User not found or not authorized in backend (401). Clearing session.');
+            dispatch(clearUser()); 
+            return rejectWithValue('User not found or not authorized in backend.');
+          }
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to fetch user profile: ${response.status}`);
         }
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to fetch user profile: ${response.status}`);
+        const userProfile = await response.json();
+        return userProfile; 
+      } catch (error) {
+        // Per altri errori di rete, prova il retry
+        if (error.message.includes('network') && retryCount < MAX_RETRIES) {
+          retryCount++;
+          const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount - 1);
+          ClientLogger.warn(`fetchUserProfile: Network error. Retrying in ${delay}ms. Attempt ${retryCount}/${MAX_RETRIES}`);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return executeWithRetry(); // Riprova
+        }
+        
+        ClientLogger.error('fetchUserProfile error:', { message: error.message });
+        dispatch(clearUser()); 
+        return rejectWithValue(error.message);
       }
-      const userProfile = await response.json();
-      return userProfile; 
-    } catch (error) {
-      ClientLogger.error('fetchUserProfile error:', { message: error.message });
-      dispatch(clearUser()); 
-      return rejectWithValue(error.message);
-    }
+    };
+    
+    return executeWithRetry();
   }
 );
 

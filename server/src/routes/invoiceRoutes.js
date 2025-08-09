@@ -17,6 +17,7 @@ import {
   deleteProcessingJob
 } from '../controllers/invoiceController.js';
 import { startProcessingJob } from '../controllers/invoiceController.js';
+import { generalLimiter, authLimiter, uploadLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -87,6 +88,7 @@ router.post(
 router.post(
   '/upload-tracked',
   verifyFirebaseToken,
+  uploadLimiter,  // Aggiungi il rate limiter specifico per upload
   upload.array('files', 10),
   uploadInvoicesWithTracking
 );

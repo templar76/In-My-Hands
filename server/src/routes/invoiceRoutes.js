@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
-import { loadTenantConfig } from '../middleware/tenantConfig.js'; // ← AGGIUNGERE
+import { loadTenantConfig } from '../middleware/tenantConfig.js';
 import { 
   uploadInvoice,
   uploadInvoices,
@@ -18,6 +18,15 @@ import {
 } from '../controllers/invoiceController.js';
 import { startProcessingJob } from '../controllers/invoiceController.js';
 import { generalLimiter, authLimiter, uploadLimiter } from '../middleware/rateLimiter.js';
+import {
+  validateSingleUpload,
+  validateMultipleUpload,
+  validateInvoicesList,
+  validateInvoiceDetails,
+  validateProcessingJob,
+  validateInvoiceStats,
+  validateDateRange
+} from '../middleware/invoiceValidation.js';
 
 const router = express.Router();
 
@@ -57,16 +66,26 @@ const upload = multer({
  */
 router.post(
   '/upload',
+  uploadLimiter,
   verifyFirebaseToken,
   upload.single('file'),
   (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Errore upload file',
+        details: err.message 
+      });
     } else if (err) {
-      return res.status(415).json({ error: err.message });
+      return res.status(415).json({ 
+        success: false,
+        error: 'Formato file non supportato',
+        details: err.message 
+      });
     }
     next();
   },
+  validateSingleUpload,
   uploadInvoice
 );
 
@@ -76,8 +95,10 @@ router.post(
  */
 router.post(
   '/upload-multiple',
+  uploadLimiter,
   verifyFirebaseToken,
   upload.array('files', 10),
+  validateMultipleUpload,
   uploadInvoices
 );
 
@@ -87,9 +108,10 @@ router.post(
  */
 router.post(
   '/upload-tracked',
+  uploadLimiter,
   verifyFirebaseToken,
-  uploadLimiter,  // Aggiungi il rate limiter specifico per upload
   upload.array('files', 10),
+  validateMultipleUpload,
   uploadInvoicesWithTracking
 );
 
@@ -99,13 +121,25 @@ router.post(
  * GET /api/invoices
  * Recupera lista fatture con filtri e paginazione
  */
-router.get('/', verifyFirebaseToken, getInvoices);
+router.get('/', 
+  generalLimiter,
+  verifyFirebaseToken, 
+  validateInvoicesList,
+  validateDateRange,
+  getInvoices
+);
 
 /**
  * GET /api/invoices/stats
  * Statistiche delle fatture
  */
-router.get('/stats', verifyFirebaseToken, getInvoicesStats);
+router.get('/stats', 
+  generalLimiter,
+  verifyFirebaseToken, 
+  validateInvoiceStats,
+  validateDateRange,
+  getInvoicesStats
+);
 
 // ==================== PROCESSING ROUTES ====================
 // ✅ SPOSTATO PRIMA - Le route specifiche devono venire prima di quelle con parametri
@@ -116,6 +150,7 @@ router.get('/stats', verifyFirebaseToken, getInvoicesStats);
  */
 router.get(
   '/processing',
+  generalLimiter,
   verifyFirebaseToken,
   getProcessingJobs
 );
@@ -126,7 +161,9 @@ router.get(
  */
 router.post(
   '/processing/:jobId/cancel',
+  generalLimiter,
   verifyFirebaseToken,
+  validateProcessingJob,
   cancelProcessingJob
 );
 
@@ -136,7 +173,9 @@ router.post(
  */
 router.post(
   '/processing/:jobId/restart',
+  generalLimiter,
   verifyFirebaseToken,
+  validateProcessingJob,
   restartProcessingJob
 );
 
@@ -146,7 +185,9 @@ router.post(
  */
 router.delete(
   '/processing/:jobId',
+  generalLimiter,
   verifyFirebaseToken,
+  validateProcessingJob,
   deleteProcessingJob
 );
 
@@ -156,7 +197,9 @@ router.delete(
  */
 router.get(
   '/processing/:jobId',
+  generalLimiter,
   verifyFirebaseToken,
+  validateProcessingJob,
   getProcessingStatus
 );
 
@@ -164,7 +207,12 @@ router.get(
  * GET /api/invoices/:id
  * Dettagli di una singola fattura
  */
-router.get('/:id', verifyFirebaseToken, getInvoiceDetails);
+router.get('/:id', 
+  generalLimiter,
+  verifyFirebaseToken, 
+  validateInvoiceDetails,
+  getInvoiceDetails
+);
 
 /**
  * POST /api/invoices/processing/:jobId/start
@@ -172,7 +220,9 @@ router.get('/:id', verifyFirebaseToken, getInvoiceDetails);
  */
 router.post(
   '/processing/:jobId/start',
-  verifyFirebaseToken, // Aggiunto middleware di autenticazione
+  generalLimiter,
+  verifyFirebaseToken,
+  validateProcessingJob,
   startProcessingJob
 );
 

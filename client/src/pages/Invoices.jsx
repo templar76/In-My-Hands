@@ -45,7 +45,7 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 import { getApiUrl } from '../utils/apiConfig';
 import { auth } from '../firebase';
 import InvoiceUploadComponent from '../components/InvoiceUploadComponent';
@@ -119,8 +119,8 @@ const Invoices = () => {
         ...filters
       };
   
-      const response = await axios.get(
-        `${getApiUrl()}/api/invoices`,
+      const response = await axiosInstance.get(
+        `/api/invoices`,
         { headers, params }
       );
   
@@ -153,8 +153,8 @@ const Invoices = () => {
         'Content-Type': 'application/json'
       };
 
-      const response = await axios.get(
-        `${getApiUrl()}/api/invoices/stats`,
+      const response = await axiosInstance.get(
+        `/api/invoices/stats`,
         { headers }
       );
 
@@ -178,8 +178,8 @@ const Invoices = () => {
         'Content-Type': 'application/json'
       };
 
-      const response = await axios.get(
-        `${getApiUrl()}/api/suppliers`,
+      const response = await axiosInstance.get(
+        `/api/suppliers`,
         { headers }
       );
       
@@ -198,8 +198,8 @@ const Invoices = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await axios.get(
-        `${getApiUrl()}/api/invoices/processing`,
+      const response = await axiosInstance.get(
+        `/api/invoices/processing`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -245,9 +245,9 @@ const Invoices = () => {
           throw new Error('Azione non supportata');
       }
 
-      await axios({
+      await axiosInstance({
         method,
-        url: `${getApiUrl()}${endpoint}`,
+        url: endpoint,
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -345,8 +345,13 @@ const Invoices = () => {
 
   // Effects
   useEffect(() => {
+    // Ritarda l'avvio del polling di 2 secondi dopo il caricamento iniziale
     loadData();
-    fetchProcessingJobs();
+    const timer = setTimeout(() => {
+      fetchProcessingJobs();
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, [loadData, fetchProcessingJobs]);
 
   useEffect(() => {
@@ -373,8 +378,8 @@ const Invoices = () => {
         'Content-Type': 'application/json'
       };
 
-      const response = await axios.get(
-        `${getApiUrl()}/api/invoices/${invoiceId}`,
+      const response = await axiosInstance.get(
+        `/api/invoices/${invoiceId}`,
         { headers }
       );
 

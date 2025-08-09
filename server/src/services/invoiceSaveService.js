@@ -70,13 +70,31 @@ logger.debug('Dati per validazione vatNumber', {
       invoiceNumber: parsedData.header.numero,
       invoiceDate: new Date(parsedData.header.data)
     });
-
+    
     if (existingInvoice) {
+      // Aggiungi l'errore di validazione
       validationErrors.push({
         type: 'duplicate_invoice',
         message: `Fattura ${parsedData.header.numero} del ${parsedData.header.data} già esistente per questo fornitore`,
-        severity: 'warning'
+        severity: 'error' // Cambiato da 'warning' a 'error'
       });
+      
+      // Log dell'errore
+      logger.warn('Tentativo di inserimento fattura duplicata bloccato', {
+        numeroFattura: parsedData.header.numero,
+        dataFattura: parsedData.header.data,
+        fornitore: supplier.name,
+        vatNumber: supplier.vatNumber,
+        tenantId,
+        existingInvoiceId: existingInvoice._id
+      });
+      
+      // Blocca il salvataggio lanciando un errore
+      const error = new Error('Fattura duplicata: già presente nel sistema');
+      error.code = 'DUPLICATE_INVOICE';
+      error.existingInvoiceId = existingInvoice._id;
+      error.validationErrors = validationErrors;
+      throw error;
     }
 
     // Prepara i line items

@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { Upload } from '@mui/icons-material'; // Aggiunto import dell'icona Upload
 import { getAuth } from 'firebase/auth';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 import { getApiUrl } from '../utils/apiConfig'; // ✅ CORRETTO: era '../utils/api'
 import ClientLogger from '../utils/ClientLogger'; // ✅ CORRETTO: era '../utils/clientLogger'
 
@@ -75,8 +75,8 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         formData.append('files', file);
       });
 
-      const res = await axios.post(
-        `${getApiUrl()}/api/invoices/upload-tracked`,
+      const res = await axiosInstance.post(
+        `/api/invoices/upload-tracked`,
         formData,
         {
           headers: {

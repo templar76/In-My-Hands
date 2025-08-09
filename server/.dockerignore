@@ -11,4 +11,6 @@ test_*.js
 scripts/
 Dockerfile*
 docker-compose*
+server/scripts/
+.trae/
 # NON escludere serviceAccountKey.json perché serve in Docker

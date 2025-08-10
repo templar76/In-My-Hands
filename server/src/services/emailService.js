@@ -5,13 +5,31 @@ import logger from '../utils/logger.js';
 const createAlertTransporter = () => {
   logger.debug('Creazione del trasportatore per gli alert...');
 
-  return nodemailer.createTransport({
+  return nodemailer.createTransporter({
     host: process.env.ALERT_SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.ALERT_SMTP_PORT) || 587,
     secure: process.env.ALERT_SMTP_SECURE === 'true',
     auth: {
       user: process.env.ALERT_SMTP_USER,
       pass: process.env.ALERT_SMTP_PASS
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+};
+
+// Configurazione del trasportatore PEC per Alert System
+const createPECTransporter = () => {
+  logger.debug('Creazione del trasportatore PEC per gli alert...');
+
+  return nodemailer.createTransporter({
+    host: process.env.PEC_SMTP_HOST,
+    port: Number(process.env.PEC_SMTP_PORT) || 465,
+    secure: process.env.PEC_SMTP_SECURE === 'true' || true,
+    auth: {
+      user: process.env.PEC_SMTP_USER,
+      pass: process.env.PEC_SMTP_PASS
     },
     tls: {
       rejectUnauthorized: false
@@ -29,10 +47,11 @@ export const sendAlertEmail = async (alertData) => {
     currentPrice,
     thresholdPrice,
     triggerReason,
-    productId
+    productId,
+    notificationMethod = 'email'
   } = alertData;
 
-  const transporter = createAlertTransporter();
+  const transporter = notificationMethod === 'pec' ? createPECTransporter() : createAlertTransporter();
 
   const subject = `🚨 Alert Prezzo: ${productName}`;
   
@@ -70,7 +89,9 @@ export const sendAlertEmail = async (alertData) => {
   `;
 
   const mailOptions = {
-    from: process.env.ALERT_SMTP_FROM || process.env.ALERT_SMTP_USER,
+    from: notificationMethod === 'pec' 
+      ? (process.env.PEC_SMTP_FROM || process.env.PEC_SMTP_USER)
+      : (process.env.ALERT_SMTP_FROM || process.env.ALERT_SMTP_USER),
     to,
     subject,
     html
@@ -78,21 +99,69 @@ export const sendAlertEmail = async (alertData) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    logger.info('Email di alert inviata con successo', {
+    logger.info(`${notificationMethod === 'pec' ? 'PEC' : 'Email'} di alert inviata con successo`, {
       recipient: to,
       alertType,
       productName,
-      productId
+      productId,
+      notificationMethod
     });
   } catch (error) {
-    logger.error('Errore nell\'invio dell\'email di alert', {
+    logger.error(`Errore nell'invio della ${notificationMethod === 'pec' ? 'PEC' : 'email'} di alert`, {
       error: error.message,
       stack: error.stack,
       recipient: to,
       alertType,
       productName,
-      productId
+      productId,
+      notificationMethod
     });
     throw error;
+  }
+};
+
+// Invia notifica PEC di alert
+export const sendAlertPEC = async (alertData) => {
+  return await sendAlertEmail({ ...alertData, notificationMethod: 'pec' });
+};
+
+// Verifica configurazione PEC
+export const verifyPECConfiguration = () => {
+  const requiredEnvVars = [
+    'PEC_SMTP_HOST',
+    'PEC_SMTP_USER',
+    'PEC_SMTP_PASS'
+  ];
+
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    logger.warn('Configurazione PEC incompleta', {
+      missingVariables: missingVars
+    });
+    return false;
+  }
+
+  return true;
+};
+
+// Test connessione PEC
+export const testPECConnection = async () => {
+  try {
+    if (!verifyPECConfiguration()) {
+      throw new Error('Configurazione PEC mancante o incompleta');
+    }
+
+    const transporter = createPECTransporter();
+    await transporter.verify();
+    
+    logger.info('Connessione PEC verificata con successo');
+    return { success: true, message: 'Connessione PEC attiva' };
+  } catch (error) {
+    logger.error('Errore nella verifica della connessione PEC', {
+      error: error.message,
+      stack: error.stack
+    });
+    return { success: false, message: error.message };
   }
 };

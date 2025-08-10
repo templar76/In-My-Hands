@@ -7,8 +7,9 @@ const axiosInstance = axios.create({
 });
 
 // Configurazione del retry
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 secondi
+const MAX_RETRIES = 2; // Ridotto da 3 a 2
+const RETRY_DELAY = 3000; // Aumentato da 2 a 3 secondi
+const MAX_RETRY_DELAY = 15000; // Massimo ritardo di 15 secondi
 
 // Interceptor per la gestione degli errori
 axiosInstance.interceptors.response.use(
@@ -28,8 +29,11 @@ axiosInstance.interceptors.response.use(
     if (response.status === 429) {
       config.retryCount += 1;
       
-      // Calcola il ritardo con backoff esponenziale
-      const delay = RETRY_DELAY * Math.pow(2, config.retryCount - 1);
+      // Calcola il ritardo con backoff esponenziale più aggressivo
+      let delay = RETRY_DELAY * Math.pow(3, config.retryCount - 1); // Usa fattore 3 invece di 2
+      delay = Math.min(delay, MAX_RETRY_DELAY); // Limita il ritardo massimo
+      
+      console.log(`Richiesta limitata (429). Riprovo tra ${delay/1000} secondi...`);
       
       // Attendi prima di riprovare
       return new Promise(resolve => {

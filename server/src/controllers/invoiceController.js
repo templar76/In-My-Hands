@@ -9,6 +9,15 @@ import InvoiceUploadService from '../services/invoiceUploadService.js';
 import InvoiceProcessingService from '../services/invoiceProcessingService.js';
 import InvoiceUploadOnlyService from '../services/invoiceUploadOnlyService.js';
 import ProcessingJobService from '../services/processingJobService.js'; // ✅ AGGIUNTO - Import mancante
+import {
+  ValidationError,
+  ConflictError,
+  NotFoundError,
+  DatabaseError,
+  BusinessLogicError
+} from '../errors/CustomErrors.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { sendSuccess, sendCreated, sendError } from '../utils/responseUtils.js';
 
 /**
  * Controller per la gestione delle fatture
@@ -23,235 +32,126 @@ import ProcessingJobService from '../services/processingJobService.js'; // ✅ A
  * @param {Object} req - Request object
  * @param {Object} res - Response object
  */
-export const uploadInvoice = async (req, res) => {
-  try {
-    logger.info('Avvio upload singola fattura', {
-      tenantId: req.user.tenantId,
-      userId: req.user.uid,
-      hasFile: !!req.file
-    });
+export const uploadInvoice = asyncHandler(async (req, res) => {
+  logger.info('Avvio upload singola fattura', {
+    tenantId: req.user.tenantId,
+    userId: req.user.uid,
+    hasFile: !!req.file
+  });
 
-    if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Nessun file caricato' 
-      });
-    }
-
-    const result = await InvoiceUploadService.uploadSingleInvoice(
-      req.file,
-      req.user.tenantId
-      // ❌ Rimuovere: req.user.uid
-    );
-
-    logger.info('Upload singola fattura completato', {
-      tenantId: req.user.tenantId,
-      success: result.success,
-      invoiceId: result.invoiceId
-    });
-
-    res.json(result);
-  } catch (error) {
-    // Nel blocco catch della funzione uploadInvoice
-    try {
-      // Gestisci errori di validazione - SALVA NEL JOB
-      if (error.code === 'VALIDATION_FAILED' && error.validationErrors) {
-        // Trova il job e aggiorna il file con gli errori di validazione
-        await ProcessingJobService.updateFileValidationErrors(
-          jobId, // Devi passare il jobId dal contesto
-          filename, // Nome del file che ha generato l'errore
-          error.validationErrors
-        );
-        
-        // Restituisci successo ma con stato di validazione fallita
-        return res.json({
-          success: true,
-          message: 'File caricato ma con errori di validazione',
-          jobId: jobId,
-          validationFailed: true
-        });
-      }
-    
-    // Gestisci errori di fattura duplicata
-    if (error.code === 'DUPLICATE_INVOICE') {
-    return res.status(409).json({
-    success: false,
-    message: 'Fattura duplicata: già presente nel sistema',
-    error: error.message,
-    existingInvoiceId: error.existingInvoiceId,
-    validationErrors: error.validationErrors
-    });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Errore durante l\'upload della fattura',
-      error: error.message
-    });
-    } catch (error) {
-    logger.error('Errore upload singola fattura', {
-    error: error.message,
-    stack: error.stack,
-    tenantId: req.user?.tenantId,
-    userId: req.user?.uid
-    });
-    
-    // Gestisci errori di validazione
-    if (error.code === 'VALIDATION_FAILED' && error.validationErrors) {
-    // Trova il job e aggiorna il file con gli errori di validazione
-    await ProcessingJobService.updateFileValidationErrors(
-    jobId, // Devi passare il jobId dal contesto
-    filename, // Nome del file che ha generato l'errore
-    error.validationErrors
-    );
-    
-    // Restituisci successo ma con stato di validazione fallita
-    return res.json({
-    success: true,
-    message: 'File caricato ma con errori di validazione',
-    jobId: jobId,
-    validationFailed: true
-    });
-    }
-    
-    res.status(500).json({
-    success: false,
-    message: 'Errore durante l\'upload della fattura',
-    error: error.message
-    });
-    }
+  if (!req.file) {
+    throw new ValidationError('Nessun file caricato', { field: 'file' });
   }
-};
+
+  const result = await InvoiceUploadService.uploadSingleInvoice(
+    req.file,
+    req.user.tenantId
+    // ❌ Rimuovere: req.user.uid
+  );
+
+  logger.info('Upload singola fattura completato', {
+    tenantId: req.user.tenantId,
+    success: result.success,
+    invoiceId: result.invoiceId
+  });
+
+  sendSuccess(res, result);
+});
 
 /**
  * Upload multiplo di fatture con tracking (NUOVO FLUSSO)
  * @param {Object} req - Request object
  * @param {Object} res - Response object
  */
-export const uploadInvoicesWithTracking = async (req, res) => {
-  try {
-    logger.info('Avvio upload multiplo con tracking (nuovo flusso)', {
-      tenantId: req.user.tenantId,
-      userId: req.user.uid,
-      filesCount: req.files?.length || 0
-    });
+export const uploadInvoicesWithTracking = asyncHandler(async (req, res) => {
+  logger.info('Avvio upload multiplo con tracking (nuovo flusso)', {
+    tenantId: req.user.tenantId,
+    userId: req.user.uid,
+    filesCount: req.files?.length || 0
+  });
 
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Nessun file caricato'
-      });
-    }
-
-    // NUOVO: Solo upload, senza elaborazione automatica
-    const result = await InvoiceUploadOnlyService.uploadFilesOnly(
-      req.files,
-      req.user.tenantId,
-      req.user.uid
-    );
-
-    logger.info('Upload completato (nuovo flusso)', {
-      tenantId: req.user.tenantId,
-      jobId: result.jobId,
-      filesCount: req.files.length
-    });
-
-    res.json(result);
-  } catch (error) {
-    logger.error('Errore upload multiplo con tracking (nuovo flusso)', {
-      error: error.message,
-      stack: error.stack,
-      tenantId: req.user?.tenantId,
-      userId: req.user?.uid
-    });
-
-    res.status(500).json({
-      success: false,
-      message: 'Errore durante l\'upload',
-      error: error.message
-    });
+  if (!req.files || req.files.length === 0) {
+    throw new ValidationError('Nessun file caricato', { field: 'files' });
   }
-};
+
+  // NUOVO: Solo upload, senza elaborazione automatica
+  const result = await InvoiceUploadOnlyService.uploadFilesOnly(
+    req.files,
+    req.user.tenantId,
+    req.user.uid
+  );
+
+  logger.info('Upload completato (nuovo flusso)', {
+    tenantId: req.user.tenantId,
+    jobId: result.jobId,
+    filesCount: req.files.length
+  });
+
+  sendSuccess(res, result);
+});
 
 /**
  * Avvia l'elaborazione di un job già caricato
  * @param {Object} req - Request object
  * @param {Object} res - Response object
  */
-export const startProcessingJob = async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    const tenantId = req.user.tenantId;
+export const startProcessingJob = asyncHandler(async (req, res) => {
+  const { jobId } = req.params;
+  const tenantId = req.user.tenantId;
 
-    logger.info('Avvio elaborazione job', {
+  logger.info('Avvio elaborazione job', {
+    jobId,
+    tenantId,
+    userId: req.user.uid
+  });
+
+  // ✅ AGGIUNTO: Log di debug
+  logger.debug('Controller: Prima di getJobStatus', {
+    jobId,
+    tenantId,
+    ProcessingJobServiceExists: !!ProcessingJobService
+  });
+
+  // Verifica che il job esista e sia in stato 'uploaded'
+  const job = await ProcessingJobService.getJobStatus(jobId, tenantId);
+  
+  // ✅ AGGIUNTO: Log di debug
+  logger.debug('Controller: Dopo getJobStatus', {
+    jobId,
+    jobExists: !!job,
+    jobStatus: job?.status
+  });
+
+  if (!job) {
+    throw new NotFoundError('Job non trovato', { jobId, tenantId });
+  }
+
+  // Modifica la condizione esistente
+  if (!['uploaded', 'pending', 'failed'].includes(job.status)) {
+    throw new BusinessLogicError(`Impossibile avviare l'elaborazione. Stato attuale: ${job.status}`, {
       jobId,
-      tenantId,
-      userId: req.user.uid
-    });
-
-    // ✅ AGGIUNTO: Log di debug
-    logger.debug('Controller: Prima di getJobStatus', {
-      jobId,
-      tenantId,
-      ProcessingJobServiceExists: !!ProcessingJobService
-    });
-
-    // Verifica che il job esista e sia in stato 'uploaded'
-    const job = await ProcessingJobService.getJobStatus(jobId, tenantId);
-    
-    // ✅ AGGIUNTO: Log di debug
-    logger.debug('Controller: Dopo getJobStatus', {
-      jobId,
-      jobExists: !!job,
-      jobStatus: job?.status
-    });
-
-    if (!job) {
-      return res.status(404).json({
-        success: false,
-        message: 'Job non trovato'
-      });
-    }
-
-    // Modifica la condizione esistente
-    if (!['uploaded', 'pending', 'failed'].includes(job.status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Impossibile avviare l'elaborazione. Stato attuale: ${job.status}`
-      });
-    }
-
-    // ✅ AGGIUNTO: Log di debug
-    logger.debug('Controller: Prima di startProcessingFromJob', {
-      jobId,
-      tenantId
-    });
-
-    // Avvia l'elaborazione
-    const result = await InvoiceProcessingService.startProcessingFromJob(jobId, tenantId, req.user.uid);
-
-    logger.info('Elaborazione job avviata', {
-      jobId,
-      tenantId,
-      success: result.success
-    });
-
-    res.json(result);
-  } catch (error) {
-    logger.error('Errore avvio elaborazione job', {
-      error: error.message,
-      stack: error.stack,
-      jobId: req.params.jobId,
-      tenantId: req.user?.tenantId
-    });
-
-    res.status(500).json({
-      success: false,
-      message: 'Errore durante l\'avvio dell\'elaborazione',
-      error: error.message
+      currentStatus: job.status,
+      allowedStatuses: ['uploaded', 'pending', 'failed']
     });
   }
-};
+
+  // ✅ AGGIUNTO: Log di debug
+  logger.debug('Controller: Prima di startProcessingFromJob', {
+    jobId,
+    tenantId
+  });
+
+  // Avvia l'elaborazione
+  const result = await InvoiceProcessingService.startProcessingFromJob(jobId, tenantId, req.user.uid);
+
+  logger.info('Elaborazione job avviata', {
+    jobId,
+    tenantId,
+    success: result.success
+  });
+
+  sendSuccess(res, result);
+});
 
 /**
  * Upload multiplo di fatture (legacy)

@@ -170,7 +170,7 @@ const Layout = memo(({ children, mode, setMode }) => {
                   <Avatar>
                     {user.displayName
                       ? user.displayName.charAt(0).toUpperCase()
-                      : user.email.charAt(0).toUpperCase()}
+                      : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                   </Avatar>
                 </IconButton>
               </Tooltip>

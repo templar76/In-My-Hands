@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import './firebaseAdmin.js';
 import './mongo.js';
 import { auth } from './firebaseAdmin.js';
@@ -22,6 +23,7 @@ import { sanitizeInput } from './middleware/validation.js';
 import clientLogsRoutes from './routes/clientLogs.js';
 import compression from 'compression';
 import alertMonitoringService from './services/alertMonitoringService.js';
+import { initializeWebSocketService } from './services/websocketService.js';
 
 dotenv.config();
 
@@ -163,7 +165,13 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
 
-const server = app.listen(PORT, () => {
+// Crea server HTTP per supportare WebSocket
+const server = createServer(app);
+
+// Inizializza il servizio WebSocket
+initializeWebSocketService(server);
+
+server.listen(PORT, () => {
   logger.info(`🚀 Server listening on port ${PORT}`, {
     environment: process.env.NODE_ENV || 'development',
     port: PORT
@@ -172,11 +180,24 @@ const server = app.listen(PORT, () => {
   // Avvia il servizio di monitoraggio alert
   alertMonitoringService.start();
   logger.info('🔔 Alert Monitoring Service avviato');
+  logger.info('🌐 WebSocket Service inizializzato');
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('👋 SIGTERM RECEIVED. Shutting down gracefully');
+  
+  // Ferma il servizio di monitoraggio
+  alertMonitoringService.stop();
+  
+  server.close(() => {
+    logger.info('💥 Process terminated!');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('👋 SIGINT RECEIVED. Shutting down gracefully');
   
   // Ferma il servizio di monitoraggio
   alertMonitoringService.stop();

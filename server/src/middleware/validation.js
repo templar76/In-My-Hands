@@ -1,6 +1,7 @@
 import { body, param, query, validationResult } from 'express-validator';
 import validator from 'validator';
 import logger from '../utils/logger.js';
+import { ValidationError, PayloadTooLargeError } from '../errors/CustomErrors.js';
 
 // Middleware per gestire errori di validazione
 export const handleValidationErrors = (req, res, next) => {
@@ -15,15 +16,7 @@ export const handleValidationErrors = (req, res, next) => {
       tenantId: req.user?.tenantId,
       userId: req.user?.uid
     });
-    return res.status(400).json({
-      success: false,
-      error: 'Dati di input non validi',
-      details: errors.array().map(err => ({
-        field: err.path,
-        message: err.msg,
-        value: typeof err.value === 'string' ? err.value.substring(0, 100) : err.value // Limita la lunghezza del valore nei log
-      }))
-    });
+    return next(ValidationError.fromExpressValidator(errors.array()));
   }
   next();
 };
@@ -206,10 +199,7 @@ export const limitPayloadSize = (maxSize = 1024 * 1024) => { // Default 1MB
         ip: req.ip,
         url: req.url
       });
-      return res.status(413).json({
-        success: false,
-        error: 'Payload troppo grande'
-      });
+      return next(new PayloadTooLargeError(maxSize));
     }
     
     next();

@@ -2,6 +2,7 @@ import { body, param, query, validationResult } from 'express-validator';
 import validator from 'validator';
 import logger from '../utils/logger.js';
 import path from 'path';
+import { ValidationError } from '../errors/CustomErrors.js';
 
 // Middleware per gestire errori di validazione specifici per fatture
 export const handleInvoiceValidationErrors = (req, res, next) => {
@@ -15,15 +16,7 @@ export const handleInvoiceValidationErrors = (req, res, next) => {
       userAgent: req.get('User-Agent'),
       tenantId: req.user?.tenantId
     });
-    return res.status(400).json({
-      success: false,
-      error: 'Dati della fattura non validi',
-      details: errors.array().map(err => ({
-        field: err.path,
-        message: err.msg,
-        value: err.value
-      }))
-    });
+    return next(ValidationError.fromExpressValidator(errors.array()));
   }
   next();
 };
@@ -171,8 +164,11 @@ export const validateInvoicesList = [
   
   query('supplierId')
     .optional()
-    .custom(isValidObjectId)
-    .withMessage('SupplierId deve essere un ObjectId valido')
+    .custom((value) => {
+      // Accetta sia stringhe vuote che ObjectId validi
+      return value === '' || isValidObjectId(value);
+    })
+    .withMessage('SupplierId deve essere un ObjectId valido o una stringa vuota')
     .customSanitizer(sanitizeString),
   
   query('search')

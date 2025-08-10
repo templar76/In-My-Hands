@@ -15,10 +15,8 @@ const API_URL = getApiUrl();
 
 const UserManagement = () => {
   const dispatch = useDispatch();
-  const { role: userRole, user } = useSelector(state => state.auth);
+  const { role: userRole, user, tenantId } = useSelector(state => state.auth);
   const { tenantUsers } = useSelector(state => state.user);
-  
-  const [tenantId, setTenantId] = useState(null);
   
   // Stati per inviti inviati
   const [sentInvitations, setSentInvitations] = useState([]);
@@ -29,28 +27,6 @@ const UserManagement = () => {
   // Stati per gestione utenti
   const [pendingRoleChanges, setPendingRoleChanges] = useState({});
   const [userManagementMessage, setUserManagementMessage] = useState(null);
-
-  // Inizializzazione tenantId
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) return;
-      try {
-        const token = await user.getIdToken(true);
-        const res = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.tenantId) {
-            setTenantId(data.tenantId);
-          }
-        }
-      } catch (err) {
-        ClientLogger.error('Error fetching tenant ID', { error: err.message, stack: err.stack });
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   // Carica utenti quando il componente si monta
   useEffect(() => {
@@ -278,6 +254,7 @@ const UserManagement = () => {
       <InvitationSection 
         tenantId={tenantId}
         onInvitationSent={handleInvitationSent}
+        isLoading={!tenantId} // Aggiungiamo questa prop per disabilitare il form se tenantId non è disponibile
       />
       
       {/* Sezioni per Admin */}

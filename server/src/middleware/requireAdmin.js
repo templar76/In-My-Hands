@@ -1,6 +1,7 @@
 
 
 import logger from '../utils/logger.js';
+import { AuthorizationError } from '../errors/CustomErrors.js';
 
 // server/src/middlewares/requireAdmin.js
 
@@ -15,7 +16,10 @@ export function requireAdmin(req, res, next) {
     middleware: 'requireAdmin'
   });
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Accesso negato. Privilegi di amministratore richiesti.' });
+    return next(new AuthorizationError(
+      'Accesso negato. Privilegi di amministratore richiesti.',
+      { requiredRole: 'admin', currentRole: req.user?.role || 'none' }
+    ));
   }
   next();
 }

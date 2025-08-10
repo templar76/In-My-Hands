@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import logger from '../utils/logger.js';
+import QueryOptimizationService from '../services/queryOptimizationService.js';
+import CacheService from '../services/cacheService.js';
 
 export const getProducts = async (req, res) => {
   try {
@@ -11,288 +13,26 @@ export const getProducts = async (req, res) => {
       return res.status(400).json({ error: 'TenantId is required' });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Build filter
-    const filter = { tenantId: new mongoose.Types.ObjectId(tenantId) };
-    
-    if (search) {
-      filter.$or = [
-        { 'descriptions.text': { $regex: search, $options: 'i' } },
-        { descriptionStd: { $regex: search, $options: 'i' } },
-        { codeInternal: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    if (category) {
-      filter.category = category;
-    }
-    
-    if (supplierId) {
-      filter['prices.supplierId'] = new mongoose.Types.ObjectId(supplierId);
-    }
-
-    // Build sort
-    let sort = {};
-    if (sortBy === 'relevance') {
-      sort = { relevanceScore: sortOrder === 'asc' ? 1 : -1 };
-    } else if (sortBy === 'totalSpent') {
-      sort = { totalSpent: sortOrder === 'asc' ? 1 : -1 };
-    } else if (sortBy === 'totalQuantityPurchased') {
-      sort = { totalQuantityPurchased: sortOrder === 'asc' ? 1 : -1 };
-    } else if (sortBy === 'description') {
-      sort = { description: sortOrder === 'asc' ? 1 : -1 };
-    } else {
-      sort = { updatedAt: sortOrder === 'asc' ? 1 : -1 };
-    }
-
-    // Aggregation pipeline per ottenere i prodotti con i dati calcolati
-    const pipeline = [
-      { $match: filter },
-      {
-        $lookup: {
-          from: 'suppliers',
-          localField: 'prices.supplierId',
-          foreignField: '_id',
-          as: 'supplierDetails'
-        }
-      },
-      {
-        $addFields: {
-          // Calcola il prezzo corrente (più recente)
-          currentPrice: {
-            $let: {
-              vars: {
-                allPrices: {
-                  $reduce: {
-                    input: '$prices',
-                    initialValue: [],
-                    in: {
-                      $concatArrays: [
-                        '$$value',
-                        {
-                          $map: {
-                            input: '$$this.priceHistory',
-                            as: 'price',
-                            in: {
-                              price: '$$price.price',
-                              date: '$$price.invoiceDate',
-                              supplierId: '$$this.supplierId'
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              },
-              in: {
-                $arrayElemAt: [
-                  {
-                    $map: {
-                      input: {
-                        $slice: [
-                          {
-                            $sortArray: {
-                              input: '$$allPrices',
-                              sortBy: { date: -1 }
-                            }
-                          },
-                          1
-                        ]
-                      },
-                      as: 'latest',
-                      in: '$$latest.price'
-                    }
-                  },
-                  0
-                ]
-              }
-            }
-          },
-          // Calcola il prezzo migliore (più basso)
-          bestPrice: {
-            $min: {
-              $reduce: {
-                input: '$prices',
-                initialValue: [],
-                in: {
-                  $concatArrays: [
-                    '$$value',
-                    {
-                      $map: {
-                        input: '$$this.priceHistory',
-                        as: 'price',
-                        in: '$$price.price'
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          // Calcola spesa totale
-          totalSpent: {
-            $sum: {
-              $map: {
-                input: '$prices',
-                as: 'supplier',
-                in: {
-                  $sum: {
-                    $map: {
-                      input: '$$supplier.priceHistory',
-                      as: 'price',
-                      in: { $multiply: ['$$price.price', '$$price.quantity'] }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          // Calcola quantità totale acquistata
-          totalQuantityPurchased: {
-            $sum: {
-              $map: {
-                input: '$prices',
-                as: 'supplier',
-                in: {
-                  $sum: {
-                    $map: {
-                      input: '$$supplier.priceHistory',
-                      as: 'price',
-                      in: '$$price.quantity'
-                    }
-                  }
-                }
-              }
-            }
-          },
-          // Calcola prezzo medio
-          averagePrice: {
-            $avg: {
-              $reduce: {
-                input: '$prices',
-                initialValue: [],
-                in: {
-                  $concatArrays: [
-                    '$$value',
-                    {
-                      $map: {
-                        input: '$$this.priceHistory',
-                        as: 'price',
-                        in: '$$price.price'
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          // Calcola data ultimo acquisto
-          lastPurchaseDate: {
-            $max: {
-              $reduce: {
-                input: '$prices',
-                initialValue: [],
-                in: {
-                  $concatArrays: [
-                    '$$value',
-                    {
-                      $map: {
-                        input: '$$this.priceHistory',
-                        as: 'price',
-                        in: '$$price.invoiceDate'
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          // Usa la descrizione o la prima descrizione disponibile
-          description: {
-            $ifNull: [
-              '$description',
-              { $arrayElemAt: ['$descriptions.text', 0] }
-            ]
-          },
-          // Calcola punteggio di rilevanza
-          relevanceScore: {
-            $add: [
-              // Peso per spesa totale (40%)
-              { $multiply: [{ $ifNull: ['$totalSpent', 0] }, 0.4] },
-              // Peso per frequenza acquisti (30%)
-              { $multiply: [{ $ifNull: ['$totalQuantityPurchased', 0] }, 30] },
-              // Peso per recency - giorni dall'ultimo acquisto (30%)
-              {
-                $multiply: [
-                  {
-                    $max: [
-                      0,
-                      {
-                        $subtract: [
-                          365,
-                          {
-                            $divide: [
-                              {
-                                $subtract: [
-                                  new Date(),
-                                  { $ifNull: ['$lastPurchaseDate', new Date('2000-01-01')] }
-                                ]
-                              },
-                              86400000 // millisecondi in un giorno
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  0.3
-                ]
-              }
-            ]
-          }
-        }
-      },
-
-      { $sort: sort },
-      { $skip: skip },
-      { $limit: parseInt(limit) }
-    ];
-
-    const products = await Product.aggregate(pipeline);
-    
-    // Get total count for pagination
-    const totalCount = await Product.countDocuments(filter);
-    
-    // Calcola KPI sui prodotti filtrati
-    const filteredStats = await Product.aggregate([
-      ...pipeline.slice(0, -2), // Escludi skip e limit
-      {
-        $group: {
-          _id: null,
-          totalProducts: { $sum: 1 },
-          totalVolume: { $sum: '$totalSpent' },
-          totalQuantity: { $sum: '$totalQuantityPurchased' },
-          averagePrice: { $avg: '$averagePrice' }
-        }
-      }
-    ]);
-
-    const stats = filteredStats[0] || {
-      totalProducts: 0,
-      totalVolume: 0,
-      totalQuantity: 0,
-      averagePrice: 0
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search,
+      category,
+      supplierId,
+      sortBy,
+      sortOrder: sortOrder === 'desc' ? -1 : 1
     };
 
+    // Utilizza il servizio di ottimizzazione query con cache
+    const result = await QueryOptimizationService.getCachedOptimizedProducts(tenantId, options);
+
     res.json({
-      products,
-      stats, // KPI calcolate sui prodotti filtrati
+      products: result.products,
+      stats: result.stats,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalCount / parseInt(limit)),
-        totalItems: totalCount,
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        totalItems: result.totalCount,
         itemsPerPage: parseInt(limit)
       }
     });

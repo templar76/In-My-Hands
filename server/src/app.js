@@ -5,13 +5,30 @@ import { sanitizeInput, preventNoSQLInjection, limitPayloadSize } from './middle
 import authRoutes from './routes/authRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
+import alertRoutes from './routes/alertRoutes.js';
+import { 
+  errorHandler, 
+  notFoundHandler, 
+  correlationIdMiddleware,
+  setupGlobalErrorHandlers 
+} from './middleware/errorHandler.js';
+import { attachResponseUtils } from './utils/responseUtils.js';
 
 const app = express();
+
+// Setup global error handlers
+setupGlobalErrorHandlers();
+
+// Middleware di correlazione per tracking errori
+app.use(correlationIdMiddleware);
 
 // Middleware di sicurezza
 app.use(helmet());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Attach response utilities
+app.use(attachResponseUtils);
 
 // Middleware di validazione globale
 app.use(limitPayloadSize(10 * 1024 * 1024)); // 10MB limit
@@ -28,22 +45,12 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/alerts', alertRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    success: false,
-    error: 'Errore interno del server'
-  });
-});
+// 404 handler (deve essere prima dell'error handler)
+app.use('*', notFoundHandler);
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint non trovato'
-  });
-});
+// Centralized error handling middleware (deve essere l'ultimo)
+app.use(errorHandler);
 
 export default app;

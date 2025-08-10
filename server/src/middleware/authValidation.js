@@ -1,6 +1,7 @@
 import { body, param, validationResult } from 'express-validator';
 import validator from 'validator';
 import logger from '../utils/logger.js';
+import { ValidationError } from '../errors/CustomErrors.js';
 
 // Middleware per gestire errori di validazione specifici per auth
 export const handleAuthValidationErrors = (req, res, next) => {
@@ -13,15 +14,7 @@ export const handleAuthValidationErrors = (req, res, next) => {
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
-    return res.status(400).json({
-      success: false,
-      error: 'Dati di autenticazione non validi',
-      details: errors.array().map(err => ({
-        field: err.path,
-        message: err.msg,
-        value: err.value
-      }))
-    });
+    return next(ValidationError.fromExpressValidator(errors.array()));
   }
   next();
 };

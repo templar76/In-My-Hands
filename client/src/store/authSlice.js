@@ -123,38 +123,92 @@ export const fetchUserProfile = createAsyncThunk(
     const INITIAL_RETRY_DELAY = 1000; // 1 secondo
     let retryCount = 0;
     
+    // Nella funzione fetchUserProfile, modifica la parte che elabora la risposta
     const executeWithRetry = async () => {
       try {
-        const token = await firebaseUser.getIdToken();
+        const token = await firebaseUser.getIdToken(true); // Forza il refresh del token
+        ClientLogger.info('fetchUserProfile: Fetching user profile with token', { 
+          uid: firebaseUser.uid,
+          tokenLength: token.length
+        });
+        
         const API_URL = getApiUrl();
         const response = await fetch(`${API_URL}/api/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-          },
+            'Content-Type': 'application/json'
+          }
         });
-
-        if (!response.ok) {
-          // Gestione specifica per errori 429 (Too Many Requests)
-          if (response.status === 429 && retryCount < MAX_RETRIES) {
+        
+        // Log della risposta HTTP per debug
+        ClientLogger.info('fetchUserProfile: API response received', { 
+          status: response.status,
+          ok: response.ok,
+          statusText: response.statusText
+        });
+        
+        if (response.status === 401) {
+          ClientLogger.error('fetchUserProfile: Authentication failed (401)', { uid: firebaseUser.uid });
+          dispatch(clearUser()); // Pulisci lo stato utente in caso di errore di autenticazione
+          return rejectWithValue('Authentication failed. Please login again.');
+        }
+        
+        if (response.status === 429) {
+          // Rate limiting, riprova con backoff
+          if (retryCount < MAX_RETRIES) {
             retryCount++;
-            // Calcola il ritardo con backoff esponenziale
             const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount - 1);
-            ClientLogger.warn(`fetchUserProfile: Rate limit exceeded (429). Retrying in ${delay}ms. Attempt ${retryCount}/${MAX_RETRIES}`);
+            ClientLogger.warn(`fetchUserProfile: Rate limited (429). Retrying in ${delay}ms. Attempt ${retryCount}/${MAX_RETRIES}`);
             
-            // Attendi prima di riprovare
             await new Promise(resolve => setTimeout(resolve, delay));
             return executeWithRetry(); // Riprova
+          } else {
+            throw new Error('Rate limit exceeded. Please try again later.');
           }
-          
-          if (response.status === 401) {
-            ClientLogger.warn('fetchUserProfile: User not found or not authorized in backend (401). Clearing session.');
-            dispatch(clearUser()); 
-            return rejectWithValue('User not found or not authorized in backend.');
-          }
+        }
+        
+        if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `Failed to fetch user profile: ${response.status}`);
         }
-        const userProfile = await response.json();
+        const responseData = await response.json();
+        ClientLogger.info('fetchUserProfile: Raw response data', {
+          hasData: !!responseData,
+          hasDataField: !!responseData.data,
+          rawData: JSON.stringify(responseData)
+        });
+
+        // Estrai i dati dal campo 'data' se presente
+        const userProfile = responseData.data || responseData;
+        
+        // Log completo del payload ricevuto
+        ClientLogger.info('fetchUserProfile: User profile received from backend', {
+          hasData: !!userProfile,
+          fields: userProfile ? Object.keys(userProfile) : 'none',
+          uid: userProfile?.uid,
+          email: userProfile?.email ? userProfile.email.substring(0, 3) + '***' : 'missing',
+          displayName: userProfile?.displayName,
+          tenantId: userProfile?.tenantId,
+          role: userProfile?.role,
+          hasTenant: !!userProfile?.tenant,
+          fullPayload: JSON.stringify(userProfile) // Log completo per debug
+        });
+        
+        // Verifica che i campi essenziali siano presenti
+        if (!userProfile.role) {
+          ClientLogger.error('fetchUserProfile: Missing role in user profile', { 
+            uid: userProfile?.uid,
+            payload: JSON.stringify(userProfile)
+          });
+        }
+        
+        if (!userProfile.tenantId) {
+          ClientLogger.error('fetchUserProfile: Missing tenantId in user profile', { 
+            uid: userProfile?.uid,
+            payload: JSON.stringify(userProfile)
+          });
+        }
+        
         return userProfile; 
       } catch (error) {
         // Per altri errori di rete, prova il retry
@@ -255,6 +309,7 @@ const authSlice = createSlice({
     error: null,
     companyName: null, // Aggiunto per accesso diretto
     role: null,        // Aggiunto per accesso diretto
+    tenantId: null,    // Aggiunto per accesso diretto
     isSubscriptionModalOpen: false,
     subscriptionPlan: null, // 'monthly', 'annual'
     registrationToken: null, // Per la fase 2 della registrazione tenant
@@ -283,6 +338,7 @@ const authSlice = createSlice({
       state.error = null;
       state.companyName = null; // Resetta anche questi
       state.role = null;        // Resetta anche questi
+      state.tenantId = null;    // Resetta anche questi
     },
     // Potremmo aggiungere un reducer per aggiornare lo stato direttamente se necessario,
     // ma fetchUserProfile.fulfilled gestisce l'impostazione dell'utente.
@@ -332,6 +388,7 @@ const authSlice = createSlice({
         state.error = null;
         state.companyName = null; // Resetta anche questi
         state.role = null;        // Resetta anche questi
+        state.tenantId = null;    // Resetta anche questi
       })
       .addCase(resetPassword.pending, state => {
         state.status = 'loading';
@@ -366,36 +423,64 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
-        ClientLogger.debug('authSlice - fetchUserProfile.fulfilled', { payload: action.payload });
+        ClientLogger.info('authSlice - fetchUserProfile.fulfilled START', { 
+          hasPayload: !!action.payload,
+          payloadFields: action.payload ? Object.keys(action.payload) : 'none'
+        });
+        
         state.status = 'succeeded';
-        state.user = action.payload; // userProfile from backend
+        state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
-
+    
         // Estrai companyName, role e tenantId per un accesso più facile
-        if (action.payload) {
-          if (action.payload.tenant) {
-            state.companyName = action.payload.tenant.companyName || 'N/A';
-            ClientLogger.debug('authSlice - companyName set', { companyName: state.companyName });
-          } else {
-            state.companyName = 'N/A';
-            ClientLogger.debug('authSlice - companyName set to N/A (no tenant in payload or companyName missing)');
-          }
-          if (action.payload.role) {
-            state.role = action.payload.role;
-            ClientLogger.debug('authSlice - role set', { role: state.role });
-          } else {
-            state.role = null;
-            ClientLogger.debug('authSlice - role set to null (no role in payload)');
-          }
-          if (action.payload.tenantId) {
-            state.tenantId = action.payload.tenantId;
-            ClientLogger.debug('authSlice - tenantId set', { tenantId: state.tenantId });
-          } else {
-            state.tenantId = null;
-            ClientLogger.debug('authSlice - tenantId set to null (no tenantId in payload)');
-          }
+        ClientLogger.info('authSlice - Processing payload', {
+          uid: action.payload.uid,
+          email: action.payload.email ? action.payload.email.substring(0, 3) + '***' : 'missing',
+          displayName: action.payload.displayName,
+          tenantId: action.payload.tenantId,
+          role: action.payload.role,
+          hasTenant: !!action.payload.tenant,
+          tenantCompanyName: action.payload.tenant?.companyName
+        });
+    
+        // Gestione del campo tenant (potrebbe essere chiamato tenant o tenantInPayload)
+        const tenantData = action.payload.tenant || action.payload.tenantInPayload;
+    
+        if (tenantData) {
+          state.companyName = tenantData.companyName || 'N/A';
+          ClientLogger.info('authSlice - companyName set from tenant data', { companyName: state.companyName });
+        } else {
+          state.companyName = 'N/A';
+          ClientLogger.warn('authSlice - companyName set to N/A (no tenant data in payload)');
         }
+    
+        // Gestione del ruolo
+        if (action.payload.role) {
+          state.role = action.payload.role;
+          ClientLogger.info('authSlice - role set', { role: state.role });
+        } else {
+          // Se il ruolo non è presente nel payload, imposta un valore di default
+          state.role = 'operator'; // Valore di default se non specificato
+          ClientLogger.warn('authSlice - role set to default "operator" (no role in payload)');
+        }
+    
+        // Gestione del tenantId
+        if (action.payload.tenantId) {
+          state.tenantId = action.payload.tenantId;
+          ClientLogger.info('authSlice - tenantId set', { tenantId: state.tenantId });
+        } else {
+          state.tenantId = null;
+          ClientLogger.warn('authSlice - tenantId set to null (no tenantId in payload)');
+        }
+    
+        ClientLogger.info('authSlice - Final state after fetchUserProfile.fulfilled', {
+          isAuthenticated: state.isAuthenticated,
+          hasUser: !!state.user,
+          companyName: state.companyName,
+          role: state.role,
+          tenantId: state.tenantId
+        });
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
         state.status = 'failed';

@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import logger from '../utils/logger.js';
+import QueryOptimizationService from '../services/queryOptimizationService.js';
+import CacheService from '../services/cacheService.js';
 
 const tenantObjectId = (req) => new mongoose.Types.ObjectId(req.user.tenantId);
 
@@ -112,6 +114,10 @@ export const ignoreGroup = async (req, res) => {
       { tenantId: req.user.tenantId, descriptionStd: groupId },
       { $set: { ignoredDuplicate: true } }
     );
+    
+    // Invalida cache per prodotti e duplicati
+    CacheService.invalidateProductCache(tenantId);
+    CacheService.invalidateAnalytics(tenantId, 'duplicates');
     
     logger.info('Gruppo duplicati ignorato', {
       tenantId,

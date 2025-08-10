@@ -1,6 +1,7 @@
 import { body, param, validationResult } from 'express-validator';
 import validator from 'validator';
 import logger from '../utils/logger.js';
+import { ValidationError, AuthorizationError } from '../errors/CustomErrors.js';
 
 // Middleware per gestire errori di validazione specifici per inviti
 export const handleInvitationValidationErrors = (req, res, next) => {
@@ -14,15 +15,7 @@ export const handleInvitationValidationErrors = (req, res, next) => {
       userAgent: req.get('User-Agent'),
       tenantId: req.user?.tenantId
     });
-    return res.status(400).json({
-      success: false,
-      error: 'Dati dell\'invito non validi',
-      details: errors.array().map(err => ({
-        field: err.path,
-        message: err.msg,
-        value: err.value
-      }))
-    });
+    return next(ValidationError.fromExpressValidator(errors.array()));
   }
   next();
 };
@@ -230,10 +223,10 @@ export const validateInvitationConsistency = (req, res, next) => {
   
   // Verifica che l'utente appartenga al tenant dell'invito
   if (tenantId && userTenantId && tenantId !== userTenantId.toString()) {
-    return res.status(403).json({
-      success: false,
-      error: 'Non autorizzato ad accedere agli inviti di questo tenant'
-    });
+    return next(new AuthorizationError(
+      'Non autorizzato ad accedere agli inviti di questo tenant',
+      { requestedTenantId: tenantId, userTenantId: userTenantId.toString() }
+    ));
   }
   
   next();

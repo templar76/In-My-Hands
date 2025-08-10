@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import Supplier from '../models/Supplier.js';
 import Invoice from '../models/Invoice.js';
 import logger from '../utils/logger.js';
+import QueryOptimizationService from '../services/queryOptimizationService.js';
+import CacheService from '../services/cacheService.js';
 
 /**
  * GET /api/suppliers/analytics
@@ -16,102 +18,44 @@ export const getSuppliersAnalytics = async (req, res) => {
       return res.status(400).json({ error: 'TenantId mancante' });
     }
 
-    // Costruisci filtro date
-    const dateFilter = {};
-    if (startDate) dateFilter.$gte = new Date(startDate);
-    if (endDate) dateFilter.$lte = new Date(endDate);
+    const dateRange = {};
+    if (startDate) dateRange.startDate = startDate;
+    if (endDate) dateRange.endDate = endDate;
 
-    const matchStage = {
-      tenantId: new mongoose.Types.ObjectId(tenantId)
-    };
-    if (Object.keys(dateFilter).length > 0) {
-      matchStage.invoiceDate = dateFilter;
-    }
-
-    // Aggregazione principale per statistiche fornitori
-    const suppliersStats = await Invoice.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: '$supplierId',
-          totalSpent: { $sum: '$totalAmount' },
-          invoiceCount: { $sum: 1 },
-          lastInvoiceDate: { $max: '$invoiceDate' },
-          firstInvoiceDate: { $min: '$invoiceDate' },
-          avgInvoiceAmount: { $avg: '$totalAmount' }
-        }
-      },
-      {
-        $lookup: {
-          from: 'suppliers',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'supplier'
-        }
-      },
-      { $unwind: '$supplier' },
-      {
-        $project: {
-          supplierId: '$_id',
-          supplierName: '$supplier.name',
-          supplierPIva: '$supplier.pIva',
-          totalSpent: 1,
-          invoiceCount: 1,
-          lastInvoiceDate: 1,
-          firstInvoiceDate: 1,
-          avgInvoiceAmount: 1
-        }
-      },
-      { $sort: { totalSpent: -1 } }
-    ]);
-
-    // Calcola totale generale per percentuali
-    const totalSpent = suppliersStats.reduce((sum, supplier) => sum + supplier.totalSpent, 0);
-    
-    // Aggiungi percentuali
-    const suppliersWithPercentage = suppliersStats.map(supplier => ({
-      ...supplier,
-      percentageOfTotal: totalSpent > 0 ? (supplier.totalSpent / totalSpent * 100) : 0
-    }));
+    // Utilizza il servizio di ottimizzazione query con cache
+    const analytics = await QueryOptimizationService.getCachedSupplierAnalytics(tenantId, dateRange);
 
     // Calcola metriche di concentrazione
-    const top3Percentage = suppliersWithPercentage
-      .slice(0, 3)
-      .reduce((sum, supplier) => sum + supplier.percentageOfTotal, 0);
+    const suppliers = analytics.suppliers || [];
+    const totalSpent = analytics.grandTotal || 0;
     
-    const top5Percentage = suppliersWithPercentage
-      .slice(0, 5)
-      .reduce((sum, supplier) => sum + supplier.percentageOfTotal, 0);
-    
-    const top10Percentage = suppliersWithPercentage
-      .slice(0, 10)
-      .reduce((sum, supplier) => sum + supplier.percentageOfTotal, 0);
+    const top3Percentage = suppliers.slice(0, 3).reduce((sum, s) => sum + s.percentageOfTotal, 0);
+    const top5Percentage = suppliers.slice(0, 5).reduce((sum, s) => sum + s.percentageOfTotal, 0);
+    const top10Percentage = suppliers.slice(0, 10).reduce((sum, s) => sum + s.percentageOfTotal, 0);
 
     // Calcola indice di concentrazione Herfindahl
-    const herfindahlIndex = suppliersWithPercentage
-      .reduce((sum, supplier) => sum + Math.pow(supplier.percentageOfTotal, 2), 0);
+    const herfindahlIndex = suppliers.reduce((sum, supplier) => sum + Math.pow(supplier.percentageOfTotal, 2), 0);
 
-    // Statistiche generali
-    const analytics = {
-      totalSuppliers: suppliersStats.length,
+    const result = {
+      totalSuppliers: suppliers.length,
       totalSpent,
-      totalInvoices: suppliersStats.reduce((sum, supplier) => sum + supplier.invoiceCount, 0),
-      avgSpentPerSupplier: suppliersStats.length > 0 ? totalSpent / suppliersStats.length : 0,
+      totalInvoices: analytics.totalInvoices || 0,
+      avgSpentPerSupplier: suppliers.length > 0 ? totalSpent / suppliers.length : 0,
       concentrationMetrics: {
         top3Percentage: Math.round(top3Percentage * 100) / 100,
         top5Percentage: Math.round(top5Percentage * 100) / 100,
         top10Percentage: Math.round(top10Percentage * 100) / 100,
         herfindahlIndex: Math.round(herfindahlIndex * 100) / 100
       },
-      topSuppliers: suppliersWithPercentage.slice(0, 10),
+      topSuppliers: suppliers.slice(0, 10),
       contractualPowerInsights: {
-        highDependency: suppliersWithPercentage.filter(s => s.percentageOfTotal > 20),
-        mediumDependency: suppliersWithPercentage.filter(s => s.percentageOfTotal > 10 && s.percentageOfTotal <= 20),
+        highDependency: suppliers.filter(s => s.percentageOfTotal > 20),
+        mediumDependency: suppliers.filter(s => s.percentageOfTotal > 10 && s.percentageOfTotal <= 20),
         diversificationLevel: herfindahlIndex < 1500 ? 'Alta' : herfindahlIndex < 2500 ? 'Media' : 'Bassa'
       }
     };
 
-    res.json(analytics);
+    res.json(result);
   } catch (error) {
     logger.error('Error in getSuppliersAnalytics', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });
     res.status(500).json({ error: 'Errore nel recupero delle statistiche fornitori' });
@@ -131,100 +75,19 @@ export const getSpendingAnalysis = async (req, res) => {
       return res.status(400).json({ error: 'TenantId mancante' });
     }
 
-    const matchStage = {
-      tenantId: new mongoose.Types.ObjectId(tenantId)
-    };
+    const dateRange = {};
+    if (startDate) dateRange.startDate = startDate;
+    if (endDate) dateRange.endDate = endDate;
+    if (supplierId) dateRange.supplierId = supplierId;
 
-    // Filtro date
-    if (startDate || endDate) {
-      matchStage.invoiceDate = {};
-      if (startDate) matchStage.invoiceDate.$gte = new Date(startDate);
-      if (endDate) matchStage.invoiceDate.$lte = new Date(endDate);
-    }
-
-    // Filtro fornitore specifico
-    if (supplierId) {
-      matchStage.supplierId = new mongoose.Types.ObjectId(supplierId);
-    }
-
-    // Definisci raggruppamento temporale
-    let dateGrouping;
-    switch (groupBy) {
-      case 'day':
-        dateGrouping = {
-          year: { $year: '$invoiceDate' },
-          month: { $month: '$invoiceDate' },
-          day: { $dayOfMonth: '$invoiceDate' }
-        };
-        break;
-      case 'week':
-        dateGrouping = {
-          year: { $year: '$invoiceDate' },
-          week: { $week: '$invoiceDate' }
-        };
-        break;
-      case 'year':
-        dateGrouping = {
-          year: { $year: '$invoiceDate' }
-        };
-        break;
-      default: // month
-        dateGrouping = {
-          year: { $year: '$invoiceDate' },
-          month: { $month: '$invoiceDate' }
-        };
-    }
-
-    const spendingTrends = await Invoice.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: {
-            supplierId: '$supplierId',
-            period: dateGrouping
-          },
-          totalSpent: { $sum: '$totalAmount' },
-          invoiceCount: { $sum: 1 },
-          avgAmount: { $avg: '$totalAmount' }
-        }
-      },
-      {
-        $lookup: {
-          from: 'suppliers',
-          localField: '_id.supplierId',
-          foreignField: '_id',
-          as: 'supplier'
-        }
-      },
-      { $unwind: '$supplier' },
-      {
-        $project: {
-          supplierId: '$_id.supplierId',
-          supplierName: '$supplier.name',
-          period: '$_id.period',
-          totalSpent: 1,
-          invoiceCount: 1,
-          avgAmount: 1
-        }
-      },
-      { $sort: { 'period.year': 1, 'period.month': 1, 'period.day': 1, 'period.week': 1 } }
-    ]);
-    // Aggregazione per timeline (dati aggregati per il grafico)
-    const timeline = await Invoice.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: dateGrouping,
-          totalSpent: { $sum: '$totalAmount' },
-          invoiceCount: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1, '_id.week': 1 } }
-    ]);
+    // Utilizza il servizio di ottimizzazione query con cache
+    const spendingData = await QueryOptimizationService.getCachedSpendingTrends(tenantId, groupBy, dateRange);
 
     res.json({
-      trends: spendingTrends, // dati per fornitore
-      timeline: timeline      // dati aggregati per il grafico
+      trends: spendingData.trends || [],
+      timeline: spendingData.timeline || [],
+      groupBy,
+      dateRange: { startDate, endDate, supplierId }
     });
   } catch (error) {
     logger.error('Error in getSpendingAnalysis', { error: error.message, stack: error.stack, tenantId: req.user?.tenantId });

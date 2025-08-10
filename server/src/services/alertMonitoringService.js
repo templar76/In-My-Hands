@@ -1,6 +1,7 @@
 import Alert from '../models/Alert.js';
 import Product from '../models/Product.js';
-import { sendAlertEmail } from './emailService.js';
+import AlertHistory from '../models/AlertHistory.js';
+import { sendAlertEmail, sendAlertPEC, verifyPECConfiguration } from './emailservice.js';
 import configService from './configService.js';
 import mongoose from 'mongoose';
 import logger from '../utils/logger.js';
@@ -278,6 +279,7 @@ class AlertMonitoringService {
 
   // Attiva un alert e invia notifica
   async triggerAlert(alert, product, supplier, currentPrice) {
+    const startTime = Date.now();
     try {
       logger.info('Alert attivato', {
         alertType: alert.type,
@@ -288,6 +290,42 @@ class AlertMonitoringService {
         service: 'AlertMonitoringService'
       });
 
+      const triggerReason = this.getTriggerReason(alert, currentPrice);
+
+      // Registra nello storico
+      const historyEntry = new AlertHistory({
+        tenantId: alert.tenantId,
+        alertId: alert._id,
+        userId: alert.userId,
+        productId: alert.productId,
+        supplierId: supplier.supplierId,
+        supplierName: supplier.supplierName || 'N/A',
+        alertType: alert.type,
+        triggerReason,
+        priceData: {
+          currentPrice,
+          thresholdPrice: alert.thresholdPrice,
+          variationPercentage: alert.variationThreshold
+        },
+        notificationData: {
+          method: alert.notificationMethod,
+          sent: false
+        },
+        metadata: {
+          responseTime: Date.now() - startTime,
+          dataSource: 'automatic'
+        }
+      });
+
+      try {
+        await historyEntry.save();
+      } catch (historyError) {
+        logger.error('Errore nel salvataggio dello storico alert', {
+          alertId: alert._id,
+          error: historyError.message
+        });
+      }
+
       // Registra l'attivazione
       await alert.recordTrigger();
 
@@ -297,7 +335,8 @@ class AlertMonitoringService {
         product,
         supplier,
         currentPrice,
-        triggerReason: this.getTriggerReason(alert, currentPrice)
+        triggerReason,
+        historyEntry
       };
 
       // Invia notifica
@@ -339,17 +378,58 @@ class AlertMonitoringService {
           currentPrice,
           thresholdPrice: alert.thresholdPrice,
           triggerReason,
-          productId: product._id
+          productId: product._id,
+          notificationMethod: 'email'
         });
+        
+        // Aggiorna lo storico come inviato
+        if (alertData.historyEntry && alertData.historyEntry.markAsSent) {
+          await alertData.historyEntry.markAsSent();
+        }
       }
 
-      // TODO: Implementare invio PEC se necessario
       if (alert.notificationMethod === 'pec' || alert.notificationMethod === 'both') {
-        logger.debug('Invio PEC non ancora implementato', {
-          alertId: alert._id,
-          notificationMethod: alert.notificationMethod,
-          service: 'AlertMonitoringService'
-        });
+        // Verifica se la configurazione PEC è disponibile
+        if (verifyPECConfiguration()) {
+          await sendAlertPEC({
+            to: alert.user.pecEmail || alert.user.email, // Usa PEC se disponibile, altrimenti email normale
+            alertType: alert.type,
+            productName: product.description,
+            supplierName: supplier.supplierName,
+            currentPrice,
+            thresholdPrice: alert.thresholdPrice,
+            triggerReason,
+            productId: product._id
+          });
+          
+          // Aggiorna lo storico come inviato
+          if (alertData.historyEntry && alertData.historyEntry.markAsSent) {
+            await alertData.historyEntry.markAsSent();
+          }
+        } else {
+          logger.warn('Configurazione PEC non disponibile, invio tramite email normale', {
+            alertId: alert._id,
+            userId: alert.userId,
+            service: 'AlertMonitoringService'
+          });
+          // Fallback a email normale
+          await sendAlertEmail({
+            to: alert.user.email,
+            alertType: alert.type,
+            productName: product.description,
+            supplierName: supplier.supplierName,
+            currentPrice,
+            thresholdPrice: alert.thresholdPrice,
+            triggerReason: triggerReason + ' (Inviato via email - PEC non configurata)',
+            productId: product._id,
+            notificationMethod: 'email'
+          });
+          
+          // Aggiorna lo storico come inviato
+          if (alertData.historyEntry && alertData.historyEntry.markAsSent) {
+            await alertData.historyEntry.markAsSent();
+          }
+        }
       }
 
     } catch (error) {

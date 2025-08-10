@@ -1,13 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Box, Typography, TextField, Button, Paper, Grid, IconButton, Switch, FormControlLabel, Divider, Alert } from '@mui/material';
-import { Edit as EditIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Box, Typography, TextField, Button, Paper, Grid, IconButton, Switch, FormControlLabel, Divider, Alert, Chip, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Edit as EditIcon, Save as SaveIcon, AdminPanelSettings as AdminIcon, Person as PersonIcon, Check as CheckIcon } from '@mui/icons-material';
 import { updateUserProfile, changePassword } from '../store/userSlice';
 import ClientLogger from '../utils/ClientLogger';
 
 const MyProfilePage = () => {
   const dispatch = useDispatch();
   const { user, tenantId, role, companyName: authCompanyName } = useSelector(state => state.auth);
+
+  // Definizione dei permessi per ogni ruolo
+  const rolePermissions = {
+    admin: {
+      label: 'Amministratore',
+      description: 'Accesso completo a tutte le funzionalità del sistema',
+      permissions: [
+        'Gestione completa fatture e prodotti',
+        'Gestione fornitori e alert',
+        'Amministrazione utenti e inviti',
+        'Accesso alle impostazioni di sistema',
+        'Visualizzazione dashboard completa',
+        'Gestione permessi e ruoli'
+      ],
+      color: 'error'
+    },
+    operator: {
+      label: 'Operatore',
+      description: 'Accesso limitato alle funzionalità operative',
+      permissions: [
+        'Visualizzazione fatture e prodotti',
+        'Gestione alert personali',
+        'Accesso dashboard limitata',
+        'Modifica del proprio profilo'
+      ],
+      color: 'primary'
+    }
+  };
+
+  const currentRoleInfo = rolePermissions[role] || {
+    label: 'Ruolo non definito',
+    description: 'Contattare l\'amministratore',
+    permissions: [],
+    color: 'default'
+  };
   
   ClientLogger.debug('Caricamento profilo utente', {
     userId: user?.uid,
@@ -151,6 +186,61 @@ const MyProfilePage = () => {
                 </IconButton>
               </Box>
             )}
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Ruolo e Permessi</Typography>
+        <Grid container spacing={2} direction="column">
+          <Grid xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', mr: 2 }}>
+                Ruolo Attuale:
+              </Typography>
+              <Chip 
+                icon={role === 'admin' ? <AdminIcon /> : <PersonIcon />}
+                label={currentRoleInfo.label}
+                color={currentRoleInfo.color}
+                variant="outlined"
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {currentRoleInfo.description}
+            </Typography>
+          </Grid>
+
+          <Grid xs={12}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>
+              Funzionalità Accessibili:
+            </Typography>
+            <List dense>
+              {currentRoleInfo.permissions.map((permission, index) => (
+                <ListItem key={index} sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <CheckIcon color="success" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={permission}
+                    primaryTypographyProps={{ variant: 'body2' }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Grid>
+
+          <Grid xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', mr: 2 }}>
+                Stato Account:
+              </Typography>
+              <Chip 
+                label="Attivo"
+                color="success"
+                size="small"
+                variant="outlined"
+              />
+            </Box>
           </Grid>
         </Grid>
       </Paper>

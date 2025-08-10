@@ -75,6 +75,7 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         formData.append('files', file);
       });
 
+      // Modifica questa parte nella funzione handleUpload
       const res = await axiosInstance.post(
         `/api/invoices/upload-tracked`,
         formData,
@@ -89,13 +90,15 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         }
       );
       
-      if (res.data.jobId) {
-        setSuccess(`Elaborazione avviata. Job ID: ${res.data.jobId}`);
+      // Modifica qui: controlla se i dati sono nell'oggetto data della risposta
+      const responseData = res.data.data || res.data;
+      if (responseData.jobId) {
+        setSuccess(`Elaborazione avviata. Job ID: ${responseData.jobId}`);
         
         if (onSuccess) {
           onSuccess({
-            jobId: res.data.jobId,
-            totalFiles: res.data.totalFiles
+            jobId: responseData.jobId,
+            totalFiles: responseData.uploadedFiles || responseData.totalFiles
           });
         }
       }
@@ -107,8 +110,8 @@ const InvoiceUploadComponent = ({ onSuccess }) => {
         totalSize: files.reduce((sum, f) => sum + f.size, 0),
         responseData: {
           success: res.data.success,
-          jobId: res.data.jobId,
-          message: res.data.message
+          jobId: responseData.jobId,
+          message: responseData.message
         }
       });
       

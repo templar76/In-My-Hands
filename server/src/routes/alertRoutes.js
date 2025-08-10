@@ -5,7 +5,15 @@ import {
   updateAlert,
   deleteAlert,
   toggleAlert,
-  testAlert
+  testAlert,
+  testPECConfig,
+  getAlertStats,
+  getAlertAnalytics,
+  getAlertHistory,
+  acknowledgeAlert,
+  bulkUpdateAlerts,
+  exportAlertReport,
+  getPerformanceMetrics
 } from '../controllers/alertController.js';
 import { verifyFirebaseToken } from '../middleware/authMiddleware.js';
 import configService from '../services/configService.js';
@@ -25,6 +33,24 @@ router.delete('/:alertId', deleteAlert);
 // Operazioni speciali
 router.patch('/:alertId/toggle', toggleAlert);
 router.post('/:alertId/test', testAlert);
+
+// Statistiche e analytics
+router.get('/stats', getAlertStats);
+router.get('/analytics', getAlertAnalytics);
+router.get('/history', getAlertHistory);
+router.patch('/history/:historyId/acknowledge', acknowledgeAlert);
+
+// Operazioni bulk
+router.post('/bulk', bulkUpdateAlerts);
+
+// Export e reporting
+router.get('/export', exportAlertReport);
+
+// Performance metrics
+router.get('/performance-metrics', getPerformanceMetrics);
+
+// Configurazione PEC
+router.get('/pec/test', testPECConfig);
 
 // Ottieni configurazione alert monitoring
 router.get('/monitoring/config', verifyFirebaseToken, async (req, res) => { // ✅ CORRETTO

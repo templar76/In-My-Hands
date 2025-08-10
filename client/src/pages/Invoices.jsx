@@ -205,6 +205,9 @@ const Invoices = () => {
         }
       );
 
+      // Aggiungi questo log per debug
+      console.log('Job recuperati:', response.data.jobs);
+
       setProcessingJobs(response.data.jobs || []);
     } catch (err) {
       ClientLogger.error('Errore recupero job elaborazione', {
@@ -404,9 +407,20 @@ const Invoices = () => {
     // Passa automaticamente al tab "Job di Elaborazione" per vedere i file caricati
     setActiveTab(1);
     
+    // Attiva il polling temporaneo
+    setTemporaryPolling(true);
+    
+    // Disattiva il polling temporaneo dopo 10 secondi
+    setTimeout(() => {
+      setTemporaryPolling(false);
+    }, 10000);
+    
     // Mostra un messaggio di successo
     console.log(`Upload completato! Job ID: ${result.jobId}`);
   };
+
+  // Stato per il polling temporaneo
+  const [temporaryPolling, setTemporaryPolling] = useState(false);
 
   // Configurazione del polling intelligente
   const {
@@ -414,15 +428,19 @@ const Invoices = () => {
     hasActiveJobs,
     currentInterval,
     startPolling,
-    stopPolling
+    stopPolling,
+    startTemporaryPolling
   } = useSmartPolling({
     fetchJobs: fetchProcessingJobs,
     fetchInvoices: loadInvoices,
     fetchStats: loadStats, // NUOVO: Aggiungi l'aggiornamento dei KPI
     jobs: processingJobs,
     enabled: true,
-    interval: 3000, // 3 secondi
-    maxInterval: 10000 // massimo 10 secondi
+    interval: 5000, // Aumenta da 3 a 5 secondi
+    maxInterval: 15000, // Aumenta da 10 a 15 secondi
+    temporaryPollingEnabled: temporaryPolling,
+    temporaryPollingInterval: 3000, // Aumenta da 1 a 3 secondi
+    temporaryPollingDuration: 10000
   });
 
   // Funzioni per gestire gli stati dei job

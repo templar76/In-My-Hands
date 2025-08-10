@@ -10,7 +10,7 @@ import ClientLogger from '../../utils/ClientLogger';
 
 const API_URL = getApiUrl();
 
-const InvitationSection = ({ tenantId, onInvitationSent }) => {
+const InvitationSection = ({ tenantId, onInvitationSent, isLoading }) => {
   const [email, setEmail] = useState('');
   const [emailExists, setEmailExists] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -166,6 +166,12 @@ const InvitationSection = ({ tenantId, onInvitationSent }) => {
         Crea Nuovo Invito
       </Typography>
       
+      {isLoading && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Caricamento dati tenant in corso. Attendere prego...
+        </Alert>
+      )}
+      
       {message && (
         <Alert severity={message.type} sx={{ mb: 2 }} onClose={() => setMessage(null)}>
           {message.text}
@@ -221,10 +227,10 @@ const InvitationSection = ({ tenantId, onInvitationSent }) => {
           type="submit"
           variant="contained"
           fullWidth
-          disabled={status === 'loading' || emailExists || checkingEmail}
+          disabled={status === 'loading' || emailExists || checkingEmail || isLoading}
           sx={{ mt: 2 }}
         >
-          {status === 'loading' ? 'Invio in corso...' : 'Invia Invito'}
+          {status === 'loading' ? 'Invio in corso...' : isLoading ? 'Caricamento...' : 'Invia Invito'}
         </Button>
       </form>
 

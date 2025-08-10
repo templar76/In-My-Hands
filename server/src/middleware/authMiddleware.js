@@ -1,5 +1,6 @@
 import { auth } from '../firebaseAdmin.js';
 import logger from '../utils/logger.js';
+import { AuthenticationError } from '../errors/CustomErrors.js';
 
 export const verifyFirebaseToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -10,10 +11,10 @@ export const verifyFirebaseToken = async (req, res, next) => {
       userAgent: req.get('User-Agent'),
       url: req.url
     });
-    return res.status(401).json({ 
-      error: 'Token mancante o malformato',
-      details: 'Formato Authorization header non corretto. Utilizzare: Bearer <token>'
-    });
+    return next(new AuthenticationError(
+      'Token mancante o malformato',
+      { expectedFormat: 'Bearer <token>' }
+    ));
   }
 
   const idToken = authHeader.split(' ')[1];
@@ -28,10 +29,16 @@ export const verifyFirebaseToken = async (req, res, next) => {
       role: decodedToken.role || 'operator'
     };
     
-    logger.debug('Token verificato con successo', {
+    logger.info('Token verificato con successo', {
       uid: decodedToken.uid,
       email: decodedToken.email?.substring(0, 3) + '***',
-      tenantId: decodedToken.tenantId
+      tenantId: decodedToken.tenantId,
+      role: decodedToken.role,
+      customClaims: {
+        hasTenantId: !!decodedToken.tenantId,
+        hasRole: !!decodedToken.role,
+        allClaims: Object.keys(decodedToken)
+      }
     });
     
     next();
@@ -43,9 +50,9 @@ export const verifyFirebaseToken = async (req, res, next) => {
       userAgent: req.get('User-Agent')
     });
     
-    return res.status(401).json({ 
-      error: 'Token non valido o scaduto',
-      details: 'Autenticazione fallita'
-    });
+    return next(new AuthenticationError(
+      'Token non valido o scaduto',
+      { originalError: error.code }
+    ));
   }
 };

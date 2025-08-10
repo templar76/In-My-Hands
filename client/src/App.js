@@ -13,7 +13,7 @@ import i18n from './i18n';
 const Home = lazy(() => import('./pages/Home'));
 const Products = lazy(() => import('./pages/Products'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
-const Alerts = lazy(() => import('./pages/Alerts'));
+const AlertManagement = lazy(() => import('./components/alerts/AlertManagementDashboard'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -77,7 +77,7 @@ function App() {
                 <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
-                <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+                <Route path="/alerts" element={<ProtectedRoute><AlertManagement /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings mode={mode} setMode={setMode} /></ProtectedRoute>} />
                 <Route path="/products/duplicates" element={<ProtectedRoute><ProductDuplicatesReview /></ProtectedRoute>} />
                 <Route

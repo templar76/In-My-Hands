@@ -7,10 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { AlertTriangle, TrendingUp, Bell, Activity, Mail, MessageSquare, Calendar, Target } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../../store/authSlice';
 
 const AlertDashboard = () => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('30d');
@@ -26,8 +28,8 @@ const AlertDashboard = () => {
   const fetchAlertStats = async () => {
     try {
       setLoading(true);
-      const token = await user.getIdToken();
-      const response = await fetch(`/api/alerts/stats?period=${period}`, {
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/stats?period=${period}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -50,8 +52,8 @@ const AlertDashboard = () => {
 
   const checkPECStatus = async () => {
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/alerts/pec/test', {
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/pec/test`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

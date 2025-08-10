@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { useAuth } from '../contexts/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../store/authSlice';
 import { toast } from 'sonner';
 
 const useWebSocket = () => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [lastMessage, setLastMessage] = useState(null);
@@ -17,13 +19,13 @@ const useWebSocket = () => {
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(async () => {
-    if (!user || socketRef.current?.connected) {
+    if (!isAuthenticated || socketRef.current?.connected) {
       return;
     }
 
     try {
       setConnectionStatus('connecting');
-      const token = await user.getIdToken();
+      const token = await dispatch(getFirebaseToken()).unwrap();
       
       const socket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:5000', {
         path: '/socket.io/',
@@ -146,7 +148,7 @@ const useWebSocket = () => {
       setConnectionStatus('error');
       handleReconnect();
     }
-  }, [user]);
+  }, [isAuthenticated, dispatch]);
 
   const handleReconnect = useCallback(() => {
     if (reconnectAttempts >= maxReconnectAttempts) {
@@ -257,9 +259,9 @@ const useWebSocket = () => {
       .slice(0, limit);
   }, [alertUpdates]);
 
-  // Auto-connect when user is available
+  // Auto-connect when user is authenticated
   useEffect(() => {
-    if (user) {
+    if (isAuthenticated) {
       connect();
     } else {
       disconnect();
@@ -268,7 +270,7 @@ const useWebSocket = () => {
     return () => {
       disconnect();
     };
-  }, [user, connect, disconnect]);
+  }, [isAuthenticated, connect, disconnect]);
 
   // Cleanup on unmount
   useEffect(() => {

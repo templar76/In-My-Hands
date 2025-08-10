@@ -23,10 +23,12 @@ import {
   Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../../store/authSlice';
 
 const AlertEscalationRules = () => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [rules, setRules] = useState([]);
   const [throttlingConfig, setThrottlingConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,8 +57,8 @@ const AlertEscalationRules = () => {
 
   const fetchRules = async () => {
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/alerts/escalation-rules', {
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/escalation-rules`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -174,9 +176,9 @@ const AlertEscalationRules = () => {
   const saveRule = async () => {
     try {
       setLoading(true);
-      const token = await user.getIdToken();
+      const token = await dispatch(getFirebaseToken()).unwrap();
       
-      const url = editingRule ? `/api/alerts/escalation-rules/${editingRule.id}` : '/api/alerts/escalation-rules';
+      const url = editingRule ? `${process.env.REACT_APP_API_URLS}/api/alerts/escalation-rules/${editingRule.id}` : `${process.env.REACT_APP_API_URLS}/api/alerts/escalation-rules`;
       const method = editingRule ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -207,8 +209,8 @@ const AlertEscalationRules = () => {
 
   const deleteRule = async (ruleId) => {
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`/api/alerts/escalation-rules/${ruleId}`, {
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/escalation-rules/${ruleId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -229,8 +231,8 @@ const AlertEscalationRules = () => {
 
   const updateThrottlingConfig = async (config) => {
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/alerts/throttling-config', {
+      const token = await dispatch(getFirebaseToken()).unwrap();
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/throttling-config`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

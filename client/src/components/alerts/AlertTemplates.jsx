@@ -10,10 +10,12 @@ import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
 import { TrendingDown, TrendingUp, AlertTriangle, Zap, Target, Bell, Plus, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../../store/authSlice';
 
 const AlertTemplates = ({ onTemplateApplied }) => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [customTemplate, setCustomTemplate] = useState({
@@ -131,7 +133,7 @@ const AlertTemplates = ({ onTemplateApplied }) => {
 
     try {
       setLoading(true);
-      const token = await user.getIdToken();
+      const token = await dispatch(getFirebaseToken()).unwrap();
       
       const alertsToCreate = productIds.map(productId => ({
         productId,
@@ -139,7 +141,7 @@ const AlertTemplates = ({ onTemplateApplied }) => {
       }));
 
       const promises = alertsToCreate.map(alertData => 
-        fetch('/api/alerts', {
+        fetch(`${process.env.REACT_APP_API_URLS}/api/alerts`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

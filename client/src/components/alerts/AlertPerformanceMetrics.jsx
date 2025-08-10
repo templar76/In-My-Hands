@@ -19,10 +19,12 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../../store/authSlice';
 
 const AlertPerformanceMetrics = () => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,9 +33,9 @@ const AlertPerformanceMetrics = () => {
   const fetchMetrics = async (showToast = false) => {
     try {
       if (showToast) setRefreshing(true);
-      const token = await user.getIdToken();
+      const token = await dispatch(getFirebaseToken()).unwrap();
       
-      const response = await fetch(`/api/alerts/performance-metrics?timeRange=${timeRange}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/performance-metrics?timeRange=${timeRange}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -281,20 +281,57 @@ export const signInWithGoogle = createAsyncThunk(
   }
 );
 
-// Async thunk to get Firebase ID token
+// Async thunk to get Firebase ID token with quota exceeded handling
 export const getFirebaseToken = createAsyncThunk(
   'auth/getFirebaseToken',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
+    const state = getState();
+    const { quotaExceededUntil, retryCount = 0 } = state.auth;
+    
+    // Check if we're in quota exceeded cooldown period
+    if (quotaExceededUntil && Date.now() < quotaExceededUntil) {
+      return rejectWithValue('Firebase quota exceeded - in cooldown period');
+    }
+    
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {
       return rejectWithValue('Nessun utente Firebase attualmente autenticato.');
     }
+    
     try {
       const token = await firebaseUser.getIdToken(true); // true forza l'aggiornamento del token se scaduto
-      return token;
+      return { token, retryCount: 0 }; // Reset retry count on success
     } catch (error) {
-      ClientLogger.error('getFirebaseToken error:', { message: error.message });
-      return rejectWithValue(error.message);
+      ClientLogger.error('getFirebaseToken error:', { message: error.message, retryCount });
+      
+      // Handle quota exceeded error with exponential backoff
+      if (error.code === 'auth/quota-exceeded') {
+        const maxRetries = 5;
+        const baseDelay = 1000; // 1 second
+        const exponentialDelay = Math.min(baseDelay * Math.pow(2, retryCount), 300000); // Max 5 minutes
+        
+        if (retryCount < maxRetries) {
+          // Set cooldown period
+          const cooldownUntil = Date.now() + exponentialDelay;
+          return rejectWithValue({
+            message: `Firebase quota exceeded - retry ${retryCount + 1}/${maxRetries} in ${exponentialDelay/1000}s`,
+            code: 'auth/quota-exceeded',
+            retryCount: retryCount + 1,
+            cooldownUntil
+          });
+        } else {
+          // Max retries reached, set longer cooldown (1 hour)
+          const longCooldownUntil = Date.now() + 3600000; // 1 hour
+          return rejectWithValue({
+            message: 'Firebase quota exceeded - max retries reached, cooldown for 1 hour',
+            code: 'auth/quota-exceeded',
+            retryCount: 0,
+            cooldownUntil: longCooldownUntil
+          });
+        }
+      }
+      
+      return rejectWithValue({ message: error.message, code: error.code });
     }
   }
 );
@@ -320,7 +357,14 @@ const authSlice = createSlice({
     passwordResetStatus: 'idle',
     passwordResetError: null,
     tokenRefreshStatus: 'idle', // Aggiunto per il refresh del token
-    tokenRefreshError: null   // Aggiunto per il refresh del token
+    tokenRefreshError: null,   // Aggiunto per il refresh del token
+    // Firebase quota exceeded handling
+    quotaExceededUntil: null, // Timestamp until which Firebase calls are disabled
+    retryCount: 0,           // Current retry count for exponential backoff
+    firebaseToken: null,     // Cached Firebase token
+    firebaseTokenStatus: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
+    firebaseTokenError: null,    // Firebase token specific error
+    fallbackMode: false      // When true, app works without Firebase token
   },
   reducers: {
     setUser(state, action) {
@@ -344,6 +388,21 @@ const authSlice = createSlice({
     // ma fetchUserProfile.fulfilled gestisce l'impostazione dell'utente.
     _tempSetUserLoading(state) { // Temporaneo per testare stati, se necessario
       state.status = 'loading';
+    },
+    // Reset Firebase quota exceeded state
+    resetFirebaseQuotaState(state) {
+      state.quotaExceededUntil = null;
+      state.retryCount = 0;
+      state.fallbackMode = false;
+      state.firebaseTokenError = null;
+    },
+    // Enable fallback mode manually
+    enableFallbackMode(state) {
+      state.fallbackMode = true;
+    },
+    // Disable fallback mode manually
+    disableFallbackMode(state) {
+      state.fallbackMode = false;
     }
   },
   extraReducers: builder => {
@@ -497,9 +556,47 @@ const authSlice = createSlice({
             state.user.displayName = updatedUserData.displayName;
           }
         }
+      })
+      // Reducers for getFirebaseToken
+      .addCase(getFirebaseToken.pending, (state) => {
+        state.firebaseTokenStatus = 'loading';
+        state.firebaseTokenError = null;
+      })
+      .addCase(getFirebaseToken.fulfilled, (state, action) => {
+        state.firebaseTokenStatus = 'succeeded';
+        state.firebaseToken = action.payload.token;
+        state.retryCount = action.payload.retryCount;
+        state.firebaseTokenError = null;
+        state.quotaExceededUntil = null; // Clear any previous quota exceeded state
+        state.fallbackMode = false; // Exit fallback mode on success
+      })
+      .addCase(getFirebaseToken.rejected, (state, action) => {
+        state.firebaseTokenStatus = 'failed';
+        state.firebaseTokenError = action.payload;
+        
+        // Handle quota exceeded specific error
+        if (typeof action.payload === 'object' && action.payload.code === 'auth/quota-exceeded') {
+          state.quotaExceededUntil = action.payload.cooldownUntil;
+          state.retryCount = action.payload.retryCount;
+          state.fallbackMode = true; // Enable fallback mode
+          
+          ClientLogger.warn('Firebase quota exceeded - entering fallback mode', {
+            cooldownUntil: new Date(action.payload.cooldownUntil).toISOString(),
+            retryCount: action.payload.retryCount
+          });
+        } else {
+          // For other errors, don't enter fallback mode
+          state.fallbackMode = false;
+        }
       });
   },
 });
 
-export const { setUser, clearUser } = authSlice.actions;
+export const { 
+  setUser, 
+  clearUser, 
+  resetFirebaseQuotaState, 
+  enableFallbackMode, 
+  disableFallbackMode 
+} = authSlice.actions;
 export default authSlice.reducer;

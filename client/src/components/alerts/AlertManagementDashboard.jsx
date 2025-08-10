@@ -14,15 +14,16 @@ import {
   Target,
   TrendingUp,
   Shield,
-  Wifi
+  Wifi,
+  List
 } from 'lucide-react';
 import AlertDashboard from './AlertDashboard';
-import AlertBulkManager from './AlertBulkManager';
 import AlertTemplates from './AlertTemplates';
 import AlertPerformanceMetrics from './AlertPerformanceMetrics';
 import AlertEscalationRules from './AlertEscalationRules';
 import AlertRealTimeStatus from './AlertRealTimeStatus';
 import AlertReporting from './AlertReporting';
+import AlertListManager from './AlertListManager';
 import useWebSocket from '../../hooks/useWebSocket';
 
 const AlertManagementDashboard = ({ className = '' }) => {
@@ -49,11 +50,11 @@ const AlertManagementDashboard = ({ className = '' }) => {
       description: 'Panoramica generale degli alert e statistiche'
     },
     {
-      id: 'bulk-manager',
-      label: 'Gestione Bulk',
-      icon: Settings,
-      component: AlertBulkManager,
-      description: 'Operazioni massive su alert multipli'
+      id: 'alert-list',
+      label: 'Lista Alert',
+      icon: List,
+      component: AlertListManager,
+      description: 'Gestione completa degli alert con filtri e azioni'
     },
     {
       id: 'templates',
@@ -212,7 +213,7 @@ const AlertManagementDashboard = ({ className = '' }) => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -236,13 +237,14 @@ const AlertManagementDashboard = ({ className = '' }) => {
               })}
             </TabsList>
 
-            {tabs.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="mt-6">
-                {CurrentComponent && activeTab === tab.id && (
-                  <CurrentComponent />
-                )}
-              </TabsContent>
-            ))}
+            {tabs.map((tab) => {
+              const Component = tab.component;
+              return (
+                <TabsContent key={tab.id} value={tab.id} className="mt-6">
+                  <Component />
+                </TabsContent>
+              );
+            })}
           </Tabs>
         </CardContent>
       </Card>

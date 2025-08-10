@@ -10,10 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { CheckSquare, Square, Trash2, Power, PowerOff, Edit, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/AuthContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { getFirebaseToken } from '../../store/authSlice';
 
 const AlertBulkManager = ({ alerts, onRefresh }) => {
-  const { user } = useAuth();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [selectedAlerts, setSelectedAlerts] = useState(new Set());
   const [bulkAction, setBulkAction] = useState('');
   const [bulkUpdates, setBulkUpdates] = useState({});
@@ -51,7 +53,7 @@ const AlertBulkManager = ({ alerts, onRefresh }) => {
 
     try {
       setLoading(true);
-      const token = await user.getIdToken();
+      const token = await dispatch(getFirebaseToken()).unwrap();
       
       const requestBody = {
         alertIds: Array.from(selectedAlerts),
@@ -62,7 +64,7 @@ const AlertBulkManager = ({ alerts, onRefresh }) => {
         requestBody.updates = bulkUpdates;
       }
 
-      const response = await fetch('/api/alerts/bulk', {
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/bulk`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -94,14 +96,14 @@ const AlertBulkManager = ({ alerts, onRefresh }) => {
   const exportAlerts = async (format = 'json', includeHistory = false) => {
     try {
       setLoading(true);
-      const token = await user.getIdToken();
+      const token = await dispatch(getFirebaseToken()).unwrap();
       
       const params = new URLSearchParams({
         format,
         includeHistory: includeHistory.toString()
       });
 
-      const response = await fetch(`/api/alerts/export?${params}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/export?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

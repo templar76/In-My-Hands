@@ -55,3 +55,4 @@ client/.DS_Store
 client/node_modules
 deploy-*
 server/.DS_Store
+script_verifica_pulizia.sh

@@ -6,11 +6,11 @@ const API_URL = getApiUrl();
 
 // Helper function to get auth token
 const getAuthToken = async (thunkAPI) => {
-  const token = await thunkAPI.dispatch(getFirebaseToken()).unwrap();
-  if (!token) {
+  const result = await thunkAPI.dispatch(getFirebaseToken()).unwrap();
+  if (!result || !result.token) {
     return thunkAPI.rejectWithValue('Nessun token di autenticazione disponibile.');
   }
-  return token;
+  return result.token;
 };
 
 // Async thunk per recuperare gli utenti del tenant

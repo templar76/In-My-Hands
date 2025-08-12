@@ -22,6 +22,9 @@ import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
 import { getFirebaseToken } from '../../store/authSlice';
 
+// Aggiungi questa importazione all'inizio del file
+import { getAuthToken } from '../../utils/authUtils';
+
 const AlertPerformanceMetrics = () => {
   const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.auth);
@@ -33,7 +36,7 @@ const AlertPerformanceMetrics = () => {
   const fetchMetrics = async (showToast = false) => {
     try {
       if (showToast) setRefreshing(true);
-      const token = await dispatch(getFirebaseToken()).unwrap();
+      const token = await getAuthToken(dispatch);
       
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/performance-metrics?timeRange=${timeRange}`, {
         headers: {

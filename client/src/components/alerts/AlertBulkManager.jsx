@@ -12,6 +12,8 @@ import { CheckSquare, Square, Trash2, Power, PowerOff, Edit, Download, Upload } 
 import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
 import { getFirebaseToken } from '../../store/authSlice';
+// Aggiungi questa importazione all'inizio del file
+import { getAuthToken } from '../../utils/authUtils';
 
 const AlertBulkManager = ({ alerts, onRefresh }) => {
   const dispatch = useDispatch();

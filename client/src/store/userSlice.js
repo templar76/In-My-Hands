@@ -1,16 +1,21 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getFirebaseToken } from './authSlice'; // Assicurati che authSlice esporti questa funzione o un modo per ottenere il token
 import { getApiUrl } from '../utils/apiConfig'; // Importa la funzione helper
+import { getAuthToken } from '../utils/authUtils';
 
 const API_URL = getApiUrl();
 
 // Helper function to get auth token
-const getAuthToken = async (thunkAPI) => {
-  const result = await thunkAPI.dispatch(getFirebaseToken()).unwrap();
-  if (!result || !result.token) {
-    return thunkAPI.rejectWithValue('Nessun token di autenticazione disponibile.');
+const getAuthTokenHelper = async (thunkAPI) => {
+  try {
+    const token = await getAuthToken(thunkAPI.dispatch);
+    if (!token) {
+      return thunkAPI.rejectWithValue('Nessun token di autenticazione disponibile.');
+    }
+    return token;
+  } catch (error) {
+    return thunkAPI.rejectWithValue('Errore durante il recupero del token: ' + error.message);
   }
-  return result.token;
 };
 
 // Async thunk per recuperare gli utenti del tenant
@@ -18,7 +23,7 @@ export const fetchTenantUsers = createAsyncThunk(
   'user/fetchTenantUsers',
   async (tenantId, thunkAPI) => {
     try {
-      const token = await getAuthToken(thunkAPI);
+      const token = await getAuthTokenHelper(thunkAPI);
       const response = await fetch(`${API_URL}/api/tenants/${tenantId}/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -40,7 +45,7 @@ export const updateUserProfile = createAsyncThunk(
   'user/updateUserProfile',
   async ({ uid, displayName }, thunkAPI) => {
     try {
-      const token = await getAuthToken(thunkAPI);
+      const token = await getAuthTokenHelper(thunkAPI);
       const response = await fetch(`${API_URL}/api/auth/users/${uid}/profile`, {
         method: 'PUT',
         headers: {
@@ -65,7 +70,7 @@ export const changePassword = createAsyncThunk(
   'user/changePassword',
   async ({ currentPassword, newPassword }, thunkAPI) => {
     try {
-      const token = await getAuthToken(thunkAPI);
+      const token = await getAuthTokenHelper(thunkAPI);
       // L'UID dell'utente corrente dovrebbe essere gestito dal backend tramite il token
       const response = await fetch(`${API_URL}/api/auth/users/change-password`, {
         method: 'POST',
@@ -91,7 +96,7 @@ export const removeUserFromTenant = createAsyncThunk(
   'user/removeUserFromTenant',
   async ({ tenantId, userId }, thunkAPI) => {
     try {
-      const token = await getAuthToken(thunkAPI);
+      const token = await getAuthTokenHelper(thunkAPI);
       const response = await fetch(`${API_URL}/api/tenants/${tenantId}/users/${userId}`, {
         method: 'DELETE',
         headers: {
@@ -114,7 +119,7 @@ export const updateUserRole = createAsyncThunk(
   'user/updateUserRole',
   async ({ tenantId, userId, newRole }, thunkAPI) => {
     try {
-      const token = await getAuthToken(thunkAPI);
+      const token = await getAuthTokenHelper(thunkAPI);
       const response = await fetch(`${API_URL}/api/tenants/${tenantId}/users/${userId}/role`, {
         method: 'PUT',
         headers: {

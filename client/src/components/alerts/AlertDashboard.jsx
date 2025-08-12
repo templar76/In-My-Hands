@@ -8,7 +8,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { AlertTriangle, TrendingUp, Bell, Activity, Mail, MessageSquare, Calendar, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
-import { getFirebaseToken } from '../../store/authSlice';
+// Aggiungi questa importazione all'inizio del file
+import { getAuthToken } from '../../utils/authUtils';
 
 const AlertDashboard = () => {
   const dispatch = useDispatch();
@@ -28,7 +29,8 @@ const AlertDashboard = () => {
   const fetchAlertStats = async () => {
     try {
       setLoading(true);
-      const token = await dispatch(getFirebaseToken()).unwrap();
+      // Modificare la riga 55 (vedo che la riga 31 è già stata modificata)
+      const token = await getAuthToken(dispatch);
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/stats?period=${period}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -52,7 +54,7 @@ const AlertDashboard = () => {
 
   const checkPECStatus = async () => {
     try {
-      const token = await dispatch(getFirebaseToken()).unwrap();
+      const token = await getAuthToken(dispatch);
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts/pec/test`, {
         headers: {
           'Authorization': `Bearer ${token}`,

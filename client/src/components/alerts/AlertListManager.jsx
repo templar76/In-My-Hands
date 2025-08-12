@@ -23,6 +23,8 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { getFirebaseToken } from '../../store/authSlice';
 import ClientLogger from '../../utils/ClientLogger';
+// Aggiungi questa importazione all'inizio del file
+import { getAuthToken } from '../../utils/authUtils';
 
 const AlertListManager = ({ 
   className = '',
@@ -77,7 +79,7 @@ const AlertListManager = ({
   const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
-      const token = await dispatch(getFirebaseToken()).unwrap();
+      const token = await getAuthToken(dispatch);
       
       const response = await fetch(`${process.env.REACT_APP_API_URLS}/api/alerts?page=${page}&limit=${limit}&search=${searchTerm}&type=${filterType}&status=${filterStatus}`, {
         headers: {

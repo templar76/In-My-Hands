@@ -379,9 +379,16 @@ export const testPECConfig = async (req, res) => {
   try {
     const { tenantId } = req.user;
     
-    logger.debug('Testing PEC configuration', {
+    logger.debug('Testing PEC configuration - PEC disabled', {
       tenantId,
       userId: req.user.uid
+    });
+
+    // PEC temporaneamente disabilitato
+    res.json({
+      message: 'Servizio PEC temporaneamente disabilitato',
+      status: 'disabled',
+      details: 'La funzionalità PEC è stata disabilitata per manutenzione'
     });
 
     const configCheck = verifyPECConfiguration();

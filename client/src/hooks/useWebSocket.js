@@ -3,6 +3,8 @@ import { io } from 'socket.io-client';
 import { useDispatch, useSelector } from 'react-redux';
 import { getFirebaseToken } from '../store/authSlice';
 import { toast } from 'sonner';
+// Aggiungi questa importazione all'inizio del file
+import { getAuthToken } from '../utils/authUtils';
 
 const useWebSocket = () => {
   const dispatch = useDispatch();
@@ -25,9 +27,9 @@ const useWebSocket = () => {
 
     try {
       setConnectionStatus('connecting');
-      const token = await dispatch(getFirebaseToken()).unwrap();
+      const token = await getAuthToken(dispatch);
       
-      const socket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:5000', {
+      const socket = io(process.env.REACT_APP_API_URLS || 'http://localhost:5000', {
         path: '/socket.io/',
         auth: {
           token

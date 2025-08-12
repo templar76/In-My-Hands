@@ -12,6 +12,8 @@ import { TrendingDown, TrendingUp, AlertTriangle, Zap, Target, Bell, Plus, Copy 
 import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
 import { getFirebaseToken } from '../../store/authSlice';
+// Aggiungi questa importazione all'inizio del file
+import { getAuthToken } from '../../utils/authUtils';
 
 const AlertTemplates = ({ onTemplateApplied }) => {
   const dispatch = useDispatch();

@@ -20,7 +20,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import useWebSocket from '../../hooks/useWebSocket';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import { formatDistanceToNow } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -40,7 +40,7 @@ const AlertRealTimeStatus = ({ className = '' }) => {
     unsubscribeFromMetrics,
     clearAlertUpdates,
     getRecentAlertsByType
-  } = useWebSocket();
+  } = useWebSocketContext();
 
   const [isSubscribedToAlerts, setIsSubscribedToAlerts] = useState(false);
   const [isSubscribedToMetrics, setIsSubscribedToMetrics] = useState(false);

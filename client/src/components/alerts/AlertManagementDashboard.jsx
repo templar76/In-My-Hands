@@ -24,11 +24,11 @@ import AlertEscalationRules from './AlertEscalationRules';
 import AlertRealTimeStatus from './AlertRealTimeStatus';
 import AlertReporting from './AlertReporting';
 import AlertListManager from './AlertListManager';
-import useWebSocket from '../../hooks/useWebSocket';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 
 const AlertManagementDashboard = ({ className = '' }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { isConnected, alertUpdates, performanceMetrics } = useWebSocket();
+  const { isConnected, alertUpdates, performanceMetrics } = useWebSocketContext();
 
   // Get recent alert counts for badges
   const recentTriggeredCount = alertUpdates.filter(

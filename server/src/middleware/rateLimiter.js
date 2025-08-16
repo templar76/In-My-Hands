@@ -214,3 +214,19 @@ export const createLimiter = rateLimit({
     });
   }
 });
+
+// Aumenta i limiti per le operazioni di processing
+export const processingLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 20, // 20 richieste per minuto per processing
+  message: {
+    error: 'Troppe richieste di elaborazione. Riprova tra un minuto.',
+    retryAfter: 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Salta il rate limiting per richieste di stato
+    return req.method === 'GET' && req.url.includes('/processing');
+  }
+});

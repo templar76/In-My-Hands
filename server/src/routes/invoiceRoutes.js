@@ -27,6 +27,7 @@ import {
   validateInvoiceStats,
   validateDateRange
 } from '../middleware/invoiceValidation.js';
+import { processingLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 

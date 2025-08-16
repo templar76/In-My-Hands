@@ -465,27 +465,44 @@ export const startProcessingFromJob = async (jobId, tenantId, uid) => {
       throw new Error('Job non trovato');
     }
 
-    // ✅ MODIFICA: Permetti restart di job in stato 'pending'
     if (!['uploaded', 'pending', 'failed'].includes(job.status)) {
       throw new Error(`Impossibile avviare l'elaborazione. Stato attuale: ${job.status}`);
     }
 
-    // ✅ AGGIUNTO: Verifica che i file abbiano percorsi temporanei
-    const filesWithoutTempPath = job.files.filter(f => !f.tempFilePath);
-    if (filesWithoutTempPath.length > 0) {
+    // ✅ NUOVA VALIDAZIONE: Verifica esistenza file temporanei
+    const missingFiles = [];
+    for (const jobFile of job.files) {
+      if (!jobFile.tempFilePath) {
+        missingFiles.push(jobFile.filename);
+        continue;
+      }
+      
+      try {
+        await fs.promises.access(jobFile.tempFilePath);
+      } catch (error) {
+        logger.warn('File temporaneo non trovato', {
+          filename: jobFile.filename,
+          tempPath: jobFile.tempFilePath,
+          error: error.message
+        });
+        missingFiles.push(jobFile.filename);
+      }
+    }
+
+    if (missingFiles.length > 0) {
       // Aggiorna lo stato a 'failed'
       await ProcessingJob.updateOne(
         { jobId },
         { 
           $set: { 
             status: 'failed',
-            error: `File temporanei mancanti: ${filesWithoutTempPath.map(f => f.filename).join(', ')}`,
+            error: `File temporanei mancanti o scaduti: ${missingFiles.join(', ')}. Ricarica i file.`,
             updatedAt: new Date()
           }
         }
       );
       
-      throw new Error(`Percorsi temporanei mancanti per i file: ${filesWithoutTempPath.map(f => f.filename).join(', ')}`);
+      throw new Error(`File temporanei mancanti o scaduti: ${missingFiles.join(', ')}. Ricarica i file per riprovare.`);
     }
 
     // ✅ CORREZIONE: Carica i file dal file system temporaneo

@@ -24,6 +24,7 @@ import clientLogsRoutes from './routes/clientLogs.js';
 import compression from 'compression';
 import alertMonitoringService from './services/alertMonitoringService.js';
 import { initializeWebSocketService } from './services/websocketService.js';
+import ProcessingJobService from './services/processingJobService.js';
 
 dotenv.config();
 
@@ -149,6 +150,15 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+
+// ✅ AGGIUNTO: Cleanup automatico file temporanei ogni ora
+setInterval(async () => {
+  try {
+    await ProcessingJobService.cleanupExpiredTempFiles(2); // File più vecchi di 2 ore
+  } catch (error) {
+    logger.error('Errore cleanup automatico', { error: error.message });
+  }
+}, 60 * 60 * 1000); // Ogni ora
 
 // 404 handler
 app.all('*', (req, res) => {

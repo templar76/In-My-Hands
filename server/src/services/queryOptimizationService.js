@@ -60,10 +60,8 @@ class QueryOptimizationService {
                   $and: [
                     { $eq: ['$tenantId', new mongoose.Types.ObjectId(tenantId)] },
                     {
-                      $or: [
-                        { $in: ['$$productId', '$lineItems.productId'] },
-                        { $in: ['$$productId', '$lineItems.matchedProductId'] }
-                      ]
+                      // Rimuovere il riferimento a productId che non esiste
+                      $in: ['$$productId', '$lineItems.matchedProductId']
                     }
                   ]
                 }
@@ -73,19 +71,17 @@ class QueryOptimizationService {
             {
               $match: {
                 $expr: {
-                  $or: [
-                    { $eq: ['$lineItems.productId', '$$productId'] },
-                    { $eq: ['$lineItems.matchedProductId', '$$productId'] }
-                  ]
+                  // Usare solo matchedProductId
+                  $eq: ['$lineItems.matchedProductId', '$$productId']
                 }
               }
             },
             {
               $project: {
-                quantity: '$lineItems.quantita',
-                unitPrice: '$lineItems.prezzoUnitario',
-                totalPrice: '$lineItems.prezzoTotale',
-                invoiceDate: '$invoiceData.dataDocumento',
+                quantity: '$lineItems.quantity',
+                unitPrice: '$lineItems.unitPrice', 
+                totalPrice: '$lineItems.total',
+                invoiceDate: '$invoiceDate',  // Corretto da '$invoiceData.dataDocumento'
                 supplierId: '$supplierId'
               }
             }

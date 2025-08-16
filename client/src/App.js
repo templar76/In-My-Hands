@@ -7,6 +7,7 @@ import InvoiceUpload from './pages/InvoiceUpload';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import i18n from './i18n';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 
 // Pagine
 // Lazy-loaded pages
@@ -52,6 +53,7 @@ function App() {
   });
 
   return (
+    <WebSocketProvider>
     <I18nextProvider i18n={i18n}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
@@ -116,6 +118,7 @@ function App() {
         </ErrorBoundary>
       </ThemeProvider>
     </I18nextProvider>
+   </WebSocketProvider> 
   );
 }
 

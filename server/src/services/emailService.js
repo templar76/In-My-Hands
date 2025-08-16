@@ -120,48 +120,23 @@ export const sendAlertEmail = async (alertData) => {
   }
 };
 
-// Invia notifica PEC di alert
+// Invia notifica PEC di alert - DISABILITATO
 export const sendAlertPEC = async (alertData) => {
-  return await sendAlertEmail({ ...alertData, notificationMethod: 'pec' });
+  logger.warn('PEC service disabled - falling back to email', {
+    recipient: alertData.to,
+    productName: alertData.productName
+  });
+  return await sendAlertEmail({ ...alertData, notificationMethod: 'email' });
 };
 
-// Verifica configurazione PEC
+// Verifica configurazione PEC - SEMPRE FALSE
 export const verifyPECConfiguration = () => {
-  const requiredEnvVars = [
-    'PEC_SMTP_HOST',
-    'PEC_SMTP_USER',
-    'PEC_SMTP_PASS'
-  ];
-
-  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-  
-  if (missingVars.length > 0) {
-    logger.warn('Configurazione PEC incompleta', {
-      missingVariables: missingVars
-    });
-    return false;
-  }
-
-  return true;
+  logger.debug('PEC configuration check disabled - returning false');
+  return false;
 };
 
-// Test connessione PEC
+// Test connessione PEC - SEMPRE FALLISCE
 export const testPECConnection = async () => {
-  try {
-    if (!verifyPECConfiguration()) {
-      throw new Error('Configurazione PEC mancante o incompleta');
-    }
-
-    const transporter = createPECTransporter();
-    await transporter.verify();
-    
-    logger.info('Connessione PEC verificata con successo');
-    return { success: true, message: 'Connessione PEC attiva' };
-  } catch (error) {
-    logger.error('Errore nella verifica della connessione PEC', {
-      error: error.message,
-      stack: error.stack
-    });
-    return { success: false, message: error.message };
-  }
+  logger.info('PEC connection test disabled');
+  return { success: false, message: 'Servizio PEC disabilitato' };
 };

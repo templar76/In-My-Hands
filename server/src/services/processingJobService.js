@@ -255,33 +255,63 @@ class ProcessingJobService {
   }
   
   // Aggiungi questo metodo alla classe ProcessingJobService
-  static async cleanupTempFiles(jobId) {
+  static async cleanupExpiredTempFiles(hoursOld = 24) {
     try {
-      const job = await ProcessingJob.findOne({ jobId });
-      if (!job) return;
+      const cutoffDate = new Date(Date.now() - (hoursOld * 60 * 60 * 1000));
       
-      for (const file of job.files) {
-        if (file.tempFilePath) {
-          try {
-            await fs.promises.unlink(file.tempFilePath);
-            logger.debug('File temporaneo eliminato', {
-              filename: file.filename,
-              tempPath: file.tempFilePath
-            });
-          } catch (error) {
-            logger.warn('Errore eliminazione file temporaneo', {
-              filename: file.filename,
-              tempPath: file.tempFilePath,
-              error: error.message
-            });
+      const expiredJobs = await ProcessingJob.find({
+        createdAt: { $lt: cutoffDate },
+        status: { $in: ['uploaded', 'pending', 'failed'] }
+      });
+  
+      let cleanedFiles = 0;
+      for (const job of expiredJobs) {
+        for (const file of job.files) {
+          if (file.tempFilePath) {
+            try {
+              await fs.promises.unlink(file.tempFilePath);
+              cleanedFiles++;
+              logger.debug('File temporaneo scaduto eliminato', {
+                filename: file.filename,
+                tempPath: file.tempFilePath,
+                jobId: job.jobId
+              });
+            } catch (error) {
+              // File già eliminato o non accessibile
+              logger.debug('File temporaneo già eliminato', {
+                filename: file.filename,
+                tempPath: file.tempFilePath
+              });
+            }
           }
         }
+        
+        // Aggiorna lo stato del job
+        await ProcessingJob.updateOne(
+          { _id: job._id },
+          { 
+            $set: { 
+              status: 'expired',
+              error: 'File temporanei scaduti',
+              updatedAt: new Date()
+            }
+          }
+        );
       }
-    } catch (error) {
-      logger.error('Errore cleanup file temporanei', {
-        jobId,
-        error: error.message
+  
+      logger.info('Cleanup file temporanei completato', {
+        expiredJobs: expiredJobs.length,
+        cleanedFiles,
+        hoursOld
       });
+  
+      return { expiredJobs: expiredJobs.length, cleanedFiles };
+    } catch (error) {
+      logger.error('Errore durante cleanup file temporanei', {
+        error: error.message,
+        hoursOld
+      });
+      throw error;
     }
   }
 }

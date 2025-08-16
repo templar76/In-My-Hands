@@ -1,7 +1,7 @@
 import Alert from '../models/Alert.js';
 import Product from '../models/Product.js';
 import AlertHistory from '../models/AlertHistory.js';
-import { sendAlertEmail, sendAlertPEC, verifyPECConfiguration } from './emailservice.js';
+import { sendAlertEmail } from './emailService.js'; // Rimosso sendAlertPEC e verifyPECConfiguration
 import configService from './configService.js';
 import mongoose from 'mongoose';
 import logger from '../utils/logger.js';
@@ -378,6 +378,33 @@ class AlertMonitoringService {
           currentPrice,
           thresholdPrice: alert.thresholdPrice,
           triggerReason,
+          productId: product._id,
+          notificationMethod: 'email'
+        });
+        
+        // Aggiorna lo storico come inviato
+        if (alertData.historyEntry && alertData.historyEntry.markAsSent) {
+          await alertData.historyEntry.markAsSent();
+        }
+      }
+
+      if (alert.notificationMethod === 'pec' || alert.notificationMethod === 'both') {
+        // PEC disabilitato - usa sempre email normale
+        logger.info('PEC disabilitato, invio tramite email normale', {
+          alertId: alert._id,
+          userId: alert.userId,
+          service: 'AlertMonitoringService'
+        });
+        
+        // Fallback a email normale
+        await sendAlertEmail({
+          to: alert.user.email,
+          alertType: alert.type,
+          productName: product.description,
+          supplierName: supplier.supplierName,
+          currentPrice,
+          thresholdPrice: alert.thresholdPrice,
+          triggerReason: triggerReason + ' (Inviato via email - PEC disabilitato)',
           productId: product._id,
           notificationMethod: 'email'
         });
